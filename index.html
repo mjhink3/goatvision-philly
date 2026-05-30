@@ -363,7 +363,6 @@
   ::-webkit-scrollbar-thumb { background:var(--border); }
 
   /* ── CONFIG NOTICE ── */
-  #config-notice { background:rgba(57,212,37,0.05); border:1px solid rgba(57,212,37,0.2); padding:8px 12px; font-size:10px; color:var(--gv-green); display:flex; align-items:center; gap:8px; }
 
   /* ── OPS BRIEF (Command Layer) ── */
   #ops-brief-panel { position:relative; overflow:hidden; background:#040404; }
@@ -512,7 +511,6 @@
     .panel-title  { font-size:8px; white-space:normal; word-break:break-word; }
 
     /* ── CONFIG NOTICE ── */
-    #config-notice { font-size:9px; white-space:normal; word-break:break-word; }
 
     /* ── OPS BRIEF ── */
     .ops-bullet { font-size:9px; white-space:normal; word-break:break-word; line-height:1.5; }
@@ -673,10 +671,6 @@
 
 <!-- ═══════════════════════════════════════════ MAIN ═══ -->
 <div id="main">
-
-  <div id="config-notice" style="display:none">
-    &#9888; PennDOT key not set. Set <code>PENNDOT_KEY</code> in the CONFIG block to enable incident and travel time feeds.
-  </div>
 
   <!-- ── PHILLY OPS BRIEF ── -->
   <div class="panel" id="ops-brief-panel">
@@ -1834,14 +1828,8 @@ function renderUnifiedAlerts() {
           </div>`;
         }).join('')
       : `<div style="padding:8px 12px;font-size:10px;color:var(--text-dim)">
-          <div style="margin-bottom:6px"><span class="sev-green">&#10003;</span> No active NWS weather-related road hazards.</div>
-          <div style="font-size:9px;line-height:1.7">
-            <span style="color:var(--gv-green);font-weight:700">Live road incidents</span> require a free PennDOT RCRS key.
-            Register at <a href="https://www.pa.gov/services/penndot/request-access-to-transportation-related-data-feeds" target="_blank" style="color:var(--gv-green)">pa.gov/penndot/data-feeds ↗</a>
-            &nbsp;·&nbsp; Free, no charge &nbsp;·&nbsp; Set <code style="color:var(--text-bright)">PENNDOT_KEY</code> in CONFIG to activate.<br>
-            Covers crashes, construction, road closures, winter conditions on I-95, I-76, I-676, I-476 and all PA interstates.
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <div><span class="sev-green">&#10003;</span> No active NWS weather-related road hazards.</div>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
             <a href="https://www.511pa.com" target="_blank" style="font-size:8px;color:var(--gv-green);border:1px solid var(--border);padding:2px 7px">511PA.com ↗</a>
             <a href="https://www.paturnpike.com/traveling/travel-advisories" target="_blank" style="font-size:8px;color:var(--gv-green);border:1px solid var(--border);padding:2px 7px">PA Turnpike Advisories ↗</a>
           </div>
@@ -2924,7 +2912,7 @@ async function fetchTravelTimes() {
   renderTravelTimes();
   updateTrafficMap();
   // Don't telemetry static routes — they're not real observations
-  document.getElementById('tt-ts').textContent = `Estimated routes · Set PENNDOT_KEY for live data`;
+  document.getElementById('tt-ts').textContent = `Estimated routes · Live data pending`;
 }
 
 async function renderTravelTimes() {
@@ -3783,9 +3771,6 @@ function generateOpsBrief() {
 // ╔══════════════════════════════════════════════════════════╗
 //  CONFIG NOTICE
 // ╚══════════════════════════════════════════════════════════╝
-function checkConfig() {
-  if (!CONFIG.PENNDOT_KEY) document.getElementById('config-notice').style.display='flex';
-}
 
 // ╔══════════════════════════════════════════════════════════╗
 //  AMTRAK 30TH STREET STATION
@@ -3996,7 +3981,6 @@ async function fetchTrauma() {
 function init() {
   startClock();
   setDailyQuote();
-  checkConfig();
 
   fetchWeather();
   fetchAirQuality();
@@ -4042,7 +4026,7 @@ function init() {
     if (ttFetchedAt) document.getElementById('tt-ts').textContent=
       CONFIG.PENNDOT_KEY
         ? `Refreshed ${ts(ttFetchedAt)} · ${allTravelTimes.length} routes`
-        : `Estimated routes · Set PENNDOT_KEY for live data`;
+        : `Estimated routes · Live data pending`;
   }, 30000);
 }
 
