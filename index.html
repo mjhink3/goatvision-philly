@@ -1704,7 +1704,8 @@ function renderDriveWindow(data) {
     const d = new Date(hourly.time[i]);
     const p=hourly.precipitation_probability[i]??0, w=hourly.wind_speed_10m[i]??0, co=hourly.weather_code[i]??0;
     const score = Math.round((p/100)*40 + windSev(w)*30 + wmoSeverity(co)*30);
-    hours.push({ label:d.toLocaleTimeString('en-US',{hour:'2-digit',hour12:false,timeZone:'America/New_York'}).replace(':00','').replace(' ',''), p,w,code:co,score });
+    const label = d.toLocaleTimeString('en-US',{hour:'numeric',hour12:true,timeZone:'America/New_York'}).replace(' AM','am').replace(' PM','pm');
+    hours.push({ label, p, w, code:co, score });
   }
   driveWindowScores = hours;
   const max=Math.max(...hours.map(h=>h.score)), min=Math.min(...hours.map(h=>h.score));
