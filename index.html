@@ -208,7 +208,7 @@
 
   /* ── SEPTA SYSTEM MAP ── */
   #septa-map-content { overflow-x:auto; background:var(--bg); contain:layout; }
-  #septa-map-content svg { min-width:480px; display:block; }
+  #septa-map-content svg { width:100%; height:auto; display:block; }
 
   /* ── SEPTA MFL/BSL TRANSIT ── */
   #transit-content { overflow:hidden; }
@@ -567,10 +567,19 @@
     #trafficmap-svg { width:100% !important; height:auto !important; display:block; min-width:unset !important; }
     .tm-legend { flex-wrap:wrap; gap:4px; font-size:8px; }
 
-    /* ── SEPTA SYSTEM MAP: scroll within panel only ── */
+    /* ── SEPTA SYSTEM MAP: scale to fit on mobile ── */
     #septa-map-panel { overflow:hidden; }
-    #septa-map-content { overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%; }
-    #septa-map-content svg { min-width:580px; max-width:none; display:block; }
+    #septa-map-content {
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      max-width:100%;
+    }
+    #septa-map-content svg {
+      width:100% !important;
+      min-width:unset !important;
+      height:auto !important;
+      display:block;
+    }
 
     /* ── SEPTA REGIONAL RAIL: single column ── */
     #septa-routes { grid-template-columns:1fr; }
@@ -2637,7 +2646,7 @@ function renderSEPTAMap() {
 
   const totalTrains = Object.values(byLine).flat().length;
 
-  const svg = `<svg viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" style="min-width:580px;height:auto;display:block;background:#060606">
+  const svg = `<svg viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;background:#060606">
     <defs>
       <pattern id="smapgrid" width="40" height="40" patternUnits="userSpaceOnUse">
         <path d="M40 0L0 0 0 40" fill="none" stroke="rgba(255,255,255,0.015)" stroke-width="0.5"/>
