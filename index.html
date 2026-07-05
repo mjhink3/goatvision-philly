@@ -815,13 +815,13 @@
         <text x="56"  y="172" font-family="monospace" font-size="9" fill="#f0f0f0" font-weight="700">30th St</text>
 
         <!-- Legend -->
-        <rect x="10" y="256" width="104" height="48" fill="rgba(5,5,5,0.92)" rx="3" stroke="#222222" stroke-width="1"/>
-        <line x1="18" y1="270" x2="42" y2="270" stroke="#3dd62a" stroke-width="4" stroke-linecap="round"/>
-        <text x="48" y="273" font-family="monospace" font-size="8" fill="#8a7faa">On Time</text>
-        <line x1="18" y1="284" x2="42" y2="284" stroke="#f0a500" stroke-width="4" stroke-linecap="round"/>
-        <text x="48" y="287" font-family="monospace" font-size="8" fill="#8a7faa">Slow</text>
-        <line x1="18" y1="298" x2="42" y2="298" stroke="#e63946" stroke-width="4" stroke-linecap="round"/>
-        <text x="48" y="301" font-family="monospace" font-size="8" fill="#8a7faa">Heavy Delay</text>
+        <rect x="464" y="12" width="104" height="48" fill="rgba(5,5,5,0.92)" rx="3" stroke="#222222" stroke-width="1"/>
+        <line x1="472" y1="26" x2="496" y2="26" stroke="#3dd62a" stroke-width="4" stroke-linecap="round"/>
+        <text x="502" y="29" font-family="monospace" font-size="8" fill="#8a7faa">On Time</text>
+        <line x1="472" y1="40" x2="496" y2="40" stroke="#f0a500" stroke-width="4" stroke-linecap="round"/>
+        <text x="502" y="43" font-family="monospace" font-size="8" fill="#8a7faa">Slow</text>
+        <line x1="472" y1="54" x2="496" y2="54" stroke="#e63946" stroke-width="4" stroke-linecap="round"/>
+        <text x="502" y="57" font-family="monospace" font-size="8" fill="#8a7faa">Heavy Delay</text>
       </svg>
     </div>
     <div class="tm-legend">
@@ -1808,34 +1808,8 @@ function renderUnifiedAlerts() {
       }).join('');
   sections.push(`<div class="unified-section-label">&#127785; NWS Weather Alerts</div>${nwsHtml}`);
 
-  // ── Section 2: Road Incidents (live when key set, NWS-based fallback) ──
-  if (CONFIG.PENNDOT_KEY) {
-    sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div><div id="incidents-list"><div class="loading-msg">Loading incidents…</div></div>`);
-  } else {
-    const ROAD_NWS = /winter.?storm|ice.?storm|freezing.?rain|blizzard|snow.?squall|frost|freeze|wind.?advisory|high.?wind|dense.?fog|flood|flash.?flood|tornado|severe.?thunderstorm/i;
-    const roadAlerts = nwsAlerts.filter(a => ROAD_NWS.test(a.properties?.event || ''));
-    const incidentHtml = roadAlerts.length > 0
-      ? roadAlerts.slice(0,4).map(f => {
-          const p = f.properties || {};
-          const sev = p.severity || 'Unknown';
-          const cls = sev==='Extreme'||sev==='Severe' ? 'sev-high' : 'sev-medium';
-          return `<div class="incident-item">
-            <div><div class="incident-sev ${cls}">${sev==='Extreme'||sev==='Severe'?'HIGH':'MED'}</div></div>
-            <div>
-              <div class="incident-desc">${p.event || 'Weather Alert'}</div>
-              <div class="incident-meta">${(p.headline||'').slice(0,100)}</div>
-            </div>
-          </div>`;
-        }).join('')
-      : `<div style="padding:8px 12px;font-size:10px;color:var(--text-dim)">
-          <div><span class="sev-green">&#10003;</span> No active NWS weather-related road hazards.</div>
-          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-            <a href="https://www.511pa.com" target="_blank" style="font-size:8px;color:var(--gv-green);border:1px solid var(--border);padding:2px 7px">511PA.com ↗</a>
-            <a href="https://www.paturnpike.com/traveling/travel-advisories" target="_blank" style="font-size:8px;color:var(--gv-green);border:1px solid var(--border);padding:2px 7px">PA Turnpike Advisories ↗</a>
-          </div>
-        </div>`;
-    sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div>${incidentHtml}`);
-  }
+  // ── Section 2: Road Incidents (owned by fetchIncidents — RCRS live feed with NWS fallback) ──
+  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div><div id="incidents-list"><div class="loading-msg">Loading incidents…</div></div>`);
 
   // ── Section 3: Weather impact + Game day (only when relevant) ──
   const contextRows = [];
@@ -2057,38 +2031,35 @@ function render311(rows) {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-//  INCIDENTS — 511PA / PennDOT (requires key) with NWS fallback
-//  511PA has no public no-key endpoint — every PA real-time road
-//  incident source requires registration. Without a key we surface
-//  road-relevant NWS alerts (already fetched) into this panel.
+//  INCIDENTS — PennDOT RCRS (via /api/penndot) with NWS fallback
 // ╚══════════════════════════════════════════════════════════╝
 async function fetchIncidents() {
-  if (CONFIG.PENNDOT_KEY) {
-    // 511PA with key — standard Open511 v2 format
-    const url = `https://www.511pa.com/api/v2/get/event?format=json&category=all&AccessCode=${CONFIG.PENNDOT_KEY}`;
-    try {
-      const data = await proxiedFetch(url);
-      const events = Array.isArray(data) ? data : (data.events || data.Events || []);
-      if (events.length) {
-        renderIncidents(events);
-        setDot('nws-dot','green');
-        document.getElementById('nws-ts').textContent = `Refreshed ${ts()} · ${events.length} incidents`;
-        return;
-      }
-    } catch(e) { /* fall through to unified render */ }
-  }
+  try {
+    const res = await fetch('/api/penndot');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const values = data.values || [];
+    if (values.length) {
+      renderIncidents(values);
+      setDot('nws-dot', 'green');
+      document.getElementById('nws-ts').textContent = `Refreshed ${ts()} · ${values.length} incidents`;
+      return;
+    }
+  } catch(e) { /* fall through to unified render */ }
 
-  // No key — unified panel handles the no-incident state
+  // No live data — unified panel's NWS-based substitute handles the road-incidents section
   renderUnifiedAlerts();
   document.getElementById('nws-ts').textContent = `NWS source · ${ts()}`;
 }
 
 
 function parseSev(a) {
-  const p = (a.EventCategory||a.category||a.type||'').toLowerCase();
-  const t = (a.EventType||a.subtype||'').toLowerCase();
-  if (p.includes('closure')||t.includes('closure')||p.includes('serious')||p.includes('crash')) return 'high';
-  if (p.includes('construction')||t.includes('accident')||p.includes('incident')) return 'medium';
+  const lane = (a.laneStatus||'').toLowerCase();
+  const cls  = (a.eventClass||'').toString();
+  const type = (a.eventType||'').toLowerCase();
+  if (lane.includes('closed')) return 'high';
+  if (cls === '1' || type.includes('crash')) return 'high';
+  if (lane.includes('restriction') || lane.includes('disruption')) return 'medium';
   return 'low';
 }
 
@@ -2100,13 +2071,15 @@ function renderIncidents(alerts) {
   const sorted=[...alerts].sort((a,b)=>order[parseSev(a)]-order[parseSev(b)]);
   document.getElementById('incidents-list').innerHTML = sorted.slice(0,30).map(a => {
     const sev  = parseSev(a);
-    const road = a.RoadName || a.road || a.location || '—';
-    const dir  = a.DirectionText || a.direction || '';
-    const desc = a.HeadlineDescription || a.description || a.headline || 'No description';
-    const loc  = a.location || road;
-    let startTime='';
-    if (a.StartTime){ const m=a.StartTime.match(/\d+/); if(m) startTime=new Date(parseInt(m[0])).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'}); }
-    if (a.start_time) startTime = new Date(a.start_time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'});
+    const road = a.facility || a.stateRouteNo || '—';
+    const dir  = a.direction || '';
+    const desc = a.description || 'No description';
+    const loc  = a.incidentMuniName || a.countyName || '—';
+    let startTime = '';
+    if (a.dateTimeNotified) {
+      const d = new Date(a.dateTimeNotified.replace(' ', 'T'));
+      if (!isNaN(d)) startTime = d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'});
+    }
     return `<div class="incident-item">
       <div><div class="incident-sev sev-${sev}">${sev}</div><div class="incident-road" style="margin-top:4px">${road} ${dir}</div></div>
       <div><div class="incident-desc">${desc}</div><div class="incident-meta">${loc}${startTime?` · ${startTime}`:''}</div></div>
@@ -3995,11 +3968,13 @@ function init() {
   fetchTravelTimes();
   fetchAmtrak();
   fetchTrauma();
+  fetchIncidents();
 
   setInterval(fetchWeather,          CONFIG.REFRESH_WEATHER_MS);
   setInterval(fetchAirQuality,       CONFIG.REFRESH_WEATHER_MS);
   setInterval(fetchNWSAlerts,        5  * 60 * 1000);
   setInterval(fetchTravelTimes,      CONFIG.REFRESH_TT_MS);
+  setInterval(fetchIncidents,        CONFIG.REFRESH_INCIDENTS_MS);
   setInterval(fetchSEPTARegional,    CONFIG.REFRESH_SEPTA_MS);
   setInterval(fetchTransit,          CONFIG.REFRESH_SEPTA_MS);
   // Re-render scheduled times every 30s so the countdown stays current
