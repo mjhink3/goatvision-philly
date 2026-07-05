@@ -1772,7 +1772,13 @@ function renderUnifiedAlerts() {
   sections.push(`<div class="unified-section-label">&#127785; NWS Weather Alerts</div>${nwsHtml}`);
 
   // ── Section 2: Road Incidents (owned by fetchIncidents — RCRS live feed with NWS fallback) ──
-  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div><div id="incidents-list"><div class="loading-msg">Loading incidents…</div></div>`);
+  // Preserve whatever fetchIncidents() already rendered here — this function re-runs on every
+  // NWS refresh and must not stomp real incident data back to the loading placeholder.
+  const existingIncidents = document.getElementById('incidents-list');
+  const incidentsHtml = existingIncidents
+    ? existingIncidents.outerHTML
+    : `<div id="incidents-list"><div class="loading-msg">Loading incidents…</div></div>`;
+  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div>${incidentsHtml}`);
 
   // ── Section 3: Weather impact + Game day (only when relevant) ──
   const contextRows = [];
@@ -3865,6 +3871,7 @@ async function fetchTrauma() {
 function init() {
   startClock();
   setDailyQuote();
+  renderUnifiedAlerts(); // ensure #incidents-list exists in the DOM before fetchIncidents/fetchNWSAlerts race
 
   fetchWeather();
   fetchAirQuality();
