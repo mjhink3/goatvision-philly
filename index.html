@@ -705,6 +705,7 @@
       <span class="refresh-ts" id="nws-ts">—</span>
     </div>
     <div id="unified-alerts-content"><div class="loading-msg">Checking alerts&hellip;</div></div>
+    <div style="padding:4px 12px 7px;font-size:9px;color:var(--text-dim);border-top:1px solid var(--border)">PennDOT RCRS Event Data (live, direct feed) — Road Incidents &amp; Closures section</div>
   </div>
 
   <!-- ── TRAVEL TIMES ── -->
@@ -836,6 +837,7 @@
       <div class="tm-legend-item"><div class="tm-swatch" style="background:#e63946"></div> Heavy Delay (&gt;1.5x avg)</div>
       <div class="tm-legend-item"><div class="tm-swatch" style="background:#222222"></div> No data</div>
     </div>
+    <div style="padding:4px 12px 7px;font-size:9px;color:var(--text-dim);border-top:1px solid var(--border)">Live via HERE Traffic Flow API · filtered to verified highway links · updated every 5 min via GitHub Actions cron</div>
   </div>
 
   <!-- ── SEPTA REGIONAL RAIL STATUS ── -->
@@ -1780,7 +1782,7 @@ function renderUnifiedAlerts() {
   const incidentsHtml = existingIncidents
     ? existingIncidents.outerHTML
     : `<div id="incidents-list"><div class="loading-msg">Loading incidents…</div></div>`;
-  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div>${incidentsHtml}<div style="padding:4px 12px 7px;font-size:9px;color:var(--text-dim);border-top:1px solid var(--border)">PennDOT RCRS Event Data (live, direct feed)</div>`);
+  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div>${incidentsHtml}`);
 
   // ── Section 3: Weather impact + Game day (only when relevant) ──
   const contextRows = [];
