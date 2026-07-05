@@ -1231,7 +1231,7 @@
   <div class="footer-sources">
     <strong>Data Sources</strong> &nbsp;·&nbsp;
     PennDOT RCRS Event Data (live, direct feed) &nbsp;·&nbsp;
-    511PA Travel Times (static placeholder, not live) &nbsp;·&nbsp;
+    HERE Traffic Flow API (Highway Travel Times, live) &nbsp;·&nbsp;
     SEPTA Real-Time API (Regional Rail &amp; Rapid Transit) &nbsp;·&nbsp;
     Open-Meteo (Weather &amp; Air Quality) &nbsp;·&nbsp;
     NWS / api.weather.gov (Watches &amp; Warnings) &nbsp;·&nbsp;
@@ -1778,7 +1778,7 @@ function renderUnifiedAlerts() {
   const incidentsHtml = existingIncidents
     ? existingIncidents.outerHTML
     : `<div id="incidents-list"><div class="loading-msg">Loading incidents…</div></div>`;
-  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div>${incidentsHtml}`);
+  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div>${incidentsHtml}<div style="padding:4px 12px 7px;font-size:9px;color:var(--text-dim);border-top:1px solid var(--border)">PennDOT RCRS Event Data (live, direct feed)</div>`);
 
   // ── Section 3: Weather impact + Game day (only when relevant) ──
   const contextRows = [];
