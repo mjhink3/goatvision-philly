@@ -1496,20 +1496,6 @@ const PROXIES = [
   'https://api.codetabs.com/v1/proxy?quest=',
 ];
 
-async function proxiedFetch(url) {
-  let lastErr;
-  for (const proxy of PROXIES) {
-    try {
-      const res = await fetch(proxy + encodeURIComponent(url));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      return JSON.parse(text);
-    } catch (e) { lastErr = e; }
-  }
-  try { const r = await fetch(url); return await r.json(); } catch (e) { lastErr = e; }
-  throw new Error(`All proxies failed: ${lastErr?.message}`);
-}
-
 // ╔══════════════════════════════════════════════════════════╗
 //  UTILITIES
 // ╚══════════════════════════════════════════════════════════╝
@@ -2818,75 +2804,38 @@ function renderSEPTAMap() {
 //  HIGHWAY TRAVEL TIMES — 511PA / PennDOT
 //  Falls back to static route table when no key
 // ╚══════════════════════════════════════════════════════════╝
-const TT_ROAD_MAP = {'I-95':'I-95','I-76':'I-76','I-676':'I-676','US-30':'US-30','I-476':'I-476','I-276':'I-276'};
 let ttRoadFilter = 'ALL';
 
-function ttInPhillyBbox(r) {
-  const lat = r.StartPoint?.Latitude ?? r.start_lat ?? 0;
-  const lon = r.StartPoint?.Longitude ?? r.start_lon ?? 0;
-  return lat>=39.6 && lat<=40.2 && lon>=-75.7 && lon<=-74.9;
-}
-
-function ttRoadLabel(r) {
-  const rn = r.StartPoint?.RoadName || r.road_name || r._road || '';
-  return TT_ROAD_MAP[rn] || null;
-}
-
-function ttDir(r) {
-  const sLat=r.StartPoint?.Latitude, eLat=r.EndPoint?.Latitude;
-  const sLon=r.StartPoint?.Longitude, eLon=r.EndPoint?.Longitude;
-  if (sLat==null||eLat==null) return '';
-  const dLat=eLat-sLat, dLon=eLon-sLon;
-  return Math.abs(dLat)>=Math.abs(dLon) ? (dLat>0?'↑':'↓') : (dLon>0?'→':'←');
-}
-
-// Static travel time routes for Philly when no live API is available
-const STATIC_ROUTES = [
-  { _road:'I-95', _dir:'↑', Name:'I-95 NB — Girard Ave to Cottman Ave', CurrentTime:14, AverageTime:12, TravelTimeID:9501 },
-  { _road:'I-95', _dir:'↓', Name:'I-95 SB — Cottman Ave to Girard Ave', CurrentTime:13, AverageTime:12, TravelTimeID:9502 },
-  { _road:'I-95', _dir:'↓', Name:'I-95 SB — Center City to Airport',    CurrentTime:20, AverageTime:18, TravelTimeID:9503 },
-  { _road:'I-76', _dir:'→', Name:'I-76 EB — KOP to 30th Street Station', CurrentTime:28, AverageTime:22, TravelTimeID:7601 },
-  { _road:'I-76', _dir:'←', Name:'I-76 WB — 30th Street to KOP',        CurrentTime:25, AverageTime:22, TravelTimeID:7602 },
-  { _road:'I-676',_dir:'→', Name:'I-676 EB — 30th St to Ben Franklin Br',CurrentTime:8,  AverageTime:7,  TravelTimeID:6761 },
-  { _road:'I-676',_dir:'←', Name:'I-676 WB — Ben Franklin Br to 30th St',CurrentTime:9,  AverageTime:7,  TravelTimeID:6762 },
-  { _road:'US-30', _dir:'←', Name:'US-30 WB — City Ave inbound',         CurrentTime:15, AverageTime:12, TravelTimeID:3001 },
-  { _road:'US-30', _dir:'→', Name:'US-30 EB — City Ave outbound',        CurrentTime:14, AverageTime:12, TravelTimeID:3002 },
-  { _road:'I-476',_dir:'↑', Name:'I-476 NB — I-95 to Plymouth Meeting',  CurrentTime:22, AverageTime:19, TravelTimeID:4761 },
-  { _road:'I-476',_dir:'↓', Name:'I-476 SB — Plymouth Meeting to I-95',  CurrentTime:21, AverageTime:19, TravelTimeID:4762 },
-];
-
 async function fetchTravelTimes() {
-  if (CONFIG.PENNDOT_KEY) {
-    try {
-      const url = `https://www.511pa.com/api/v2/get/traveltimes?format=json&AccessCode=${CONFIG.PENNDOT_KEY}`;
-      const data = await proxiedFetch(url);
-      if (Array.isArray(data) && data.length) {
-        allTravelTimes = data.filter(r => {
-          if (!ttInPhillyBbox(r)) return false;
-          r._road = ttRoadLabel(r);
-          if (!r._road) return false;
-          r._dir = ttDir(r);
-          return true;
-        }).sort((a,b) => (a._road||'').localeCompare(b._road||'')||a._dir.localeCompare(b._dir||''));
-        ttFetchedAt = new Date();
-        _brief.tt = true;
-        renderTravelTimes();
-        updateTrafficMap();
-        telemetryTT(allTravelTimes);
-        document.getElementById('tt-ts').textContent = `Refreshed ${ts(ttFetchedAt)} · ${allTravelTimes.length} routes`;
-        return;
-      }
-    } catch(e) { /* fall through to static */ }
-  }
+  try {
+    const res = await fetch('/api/traveltimes');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rows = Array.isArray(data.values) ? data.values : [];
+    if (rows.length) {
+      allTravelTimes = rows.map(r => ({
+        _road: r.road,
+        _dir: '',
+        Name: r.name || r.road,
+        CurrentTime: r.current_minutes,
+        AverageTime: r.average_minutes,
+        TravelTimeID: r.road,
+      })).sort((a,b) => (a._road||'').localeCompare(b._road||''));
+      ttFetchedAt = new Date();
+      _brief.tt = true;
+      renderTravelTimes();
+      updateTrafficMap();
+      telemetryTT(allTravelTimes);
+      document.getElementById('tt-ts').textContent = `Refreshed ${ts(ttFetchedAt)} · ${allTravelTimes.length} routes`;
+      return;
+    }
+  } catch(e) { /* fall through to unavailable state */ }
 
-  // Static fallback — display routes with current/average but flag as estimated
-  allTravelTimes = STATIC_ROUTES;
-  ttFetchedAt = new Date();
+  allTravelTimes = [];
+  ttFetchedAt = null;
   _brief.tt = true;
-  renderTravelTimes();
-  updateTrafficMap();
-  // Don't telemetry static routes — they're not real observations
-  document.getElementById('tt-ts').textContent = `Estimated routes · Live data pending`;
+  document.getElementById('tt-list').innerHTML = '<div class="loading-msg">Live travel time data unavailable</div>';
+  document.getElementById('tt-ts').textContent = 'Live data unavailable';
 }
 
 async function renderTravelTimes() {
@@ -4000,9 +3949,7 @@ function init() {
 
   setInterval(()=>{
     if (ttFetchedAt) document.getElementById('tt-ts').textContent=
-      CONFIG.PENNDOT_KEY
-        ? `Refreshed ${ts(ttFetchedAt)} · ${allTravelTimes.length} routes`
-        : `Estimated routes · Live data pending`;
+      `Refreshed ${ts(ttFetchedAt)} · ${allTravelTimes.length} routes`;
   }, 30000);
 }
 
