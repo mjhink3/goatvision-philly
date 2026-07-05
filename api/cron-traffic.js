@@ -55,6 +55,10 @@ export default async function handler(req, res) {
     for (const hwy of HIGHWAYS) {
       try {
         const results = await fetchFlow(hwy.bbox);
+        if (hwy.road === 'I-95' && results.length) {
+          // TEMP DEBUG — remove after inspecting real HERE v7 field names
+          console.log('[DEBUG-I95-RAW]', JSON.stringify(results[0]));
+        }
         const agg = aggregate(results);
         if (agg) rows.push({ road: hwy.road, name: hwy.name, ...agg, updated_at: new Date().toISOString() });
       } catch (e) {
