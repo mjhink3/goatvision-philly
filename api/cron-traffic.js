@@ -1,9 +1,9 @@
 const HIGHWAYS = [
-  { road: 'I-95',  name: 'I-95 (Delaware Expressway)',       bbox: [-75.14, 39.88, -75.03, 40.08] },
-  { road: 'I-76',  name: 'I-76 (Schuylkill Expressway)',     bbox: [-75.40, 39.94, -75.17, 40.10] },
-  { road: 'I-676', name: 'I-676 (Vine St Expressway)',       bbox: [-75.165, 39.955, -75.145, 39.965] },
-  { road: 'US-30', name: 'US-30 (City Ave / Lancaster Ave)', bbox: [-75.24, 39.99, -75.19, 40.03] },
-  { road: 'I-476', name: 'I-476 (Blue Route)',               bbox: [-75.36, 39.90, -75.30, 40.10] },
+  { road: 'I-95',  name: 'I-95 (Delaware Expressway)',       bbox: [-75.14, 39.88, -75.03, 40.08],     namePattern: /I-?95|Delaware\s*Exp/i },
+  { road: 'I-76',  name: 'I-76 (Schuylkill Expressway)',     bbox: [-75.40, 39.94, -75.17, 40.10],     namePattern: /I-?76|Schuylkill\s*Exp/i },
+  { road: 'I-676', name: 'I-676 (Vine St Expressway)',       bbox: [-75.165, 39.955, -75.145, 39.965], namePattern: /I-?676|Vine\s*St\s*Exp/i },
+  { road: 'US-30', name: 'US-30 (City Ave / Lancaster Ave)', bbox: [-75.24, 39.99, -75.19, 40.03],     namePattern: /US-?30\b/i },
+  { road: 'I-476', name: 'I-476 (Blue Route)',               bbox: [-75.36, 39.90, -75.30, 40.10],     namePattern: /I-?476\b/i },
 ];
 
 const MPS_TO_MPH = 2.23694;
@@ -55,27 +55,22 @@ export default async function handler(req, res) {
     for (const hwy of HIGHWAYS) {
       try {
         const results = await fetchFlow(hwy.bbox);
-        if (hwy.road === 'I-95' && results.length) {
-          // TEMP DEBUG — evaluating whether shape-referenced links give a usable
-          // directional signal and whether description text cleanly separates
-          // highway links from cross streets. Remove after inspection.
-          try {
-            const [west, south, east, north] = hwy.bbox;
-            const shapeUrl = `https://data.traffic.hereapi.com/v7/flow?in=bbox:${west},${south},${east},${north}&locationReferencing=shape&apiKey=${process.env.HERE_API_KEY}`;
-            const shapeRes = await fetch(shapeUrl);
-            const shapeData = await shapeRes.json();
-            const all = shapeData.results || [];
-            const descriptions = all.map(r => r.location?.description || '(none)');
-            const highwayMatches = descriptions.filter(d => /I-?95|Delaware\s*Exp/i.test(d));
-            console.log('[DEBUG-I95-COUNT]', JSON.stringify({
-              total: all.length,
-              highwayMatches: highwayMatches.length,
-              highwayMatchSamples: highwayMatches.slice(0, 10),
-              allDescriptions: descriptions,
-            }));
-          } catch (e) {
-            console.log('[DEBUG-I95-SHAPE-ERROR]', e.message);
-          }
+        // TEMP DEBUG — census check: does namePattern cleanly separate this
+        // highway's links from bbox cross-street contamination? Remove once
+        // all 5 roads are confirmed.
+        try {
+          const descriptions = results.map(r => r.location?.description || '(none)');
+          const kept = descriptions.filter(d => hwy.namePattern.test(d));
+          const discarded = descriptions.filter(d => !hwy.namePattern.test(d));
+          console.log(`[DEBUG-CENSUS-${hwy.road}]`, JSON.stringify({
+            total: descriptions.length,
+            kept: kept.length,
+            discarded: discarded.length,
+            keptSamples: [...new Set(kept)].slice(0, 15),
+            discardedSamples: [...new Set(discarded)].slice(0, 25),
+          }));
+        } catch (e) {
+          console.log(`[DEBUG-CENSUS-${hwy.road}-ERROR]`, e.message);
         }
         const agg = aggregate(results);
         if (agg) rows.push({ road: hwy.road, name: hwy.name, ...agg, updated_at: new Date().toISOString() });
