@@ -64,12 +64,15 @@ export default async function handler(req, res) {
             const shapeUrl = `https://data.traffic.hereapi.com/v7/flow?in=bbox:${west},${south},${east},${north}&locationReferencing=shape&apiKey=${process.env.HERE_API_KEY}`;
             const shapeRes = await fetch(shapeUrl);
             const shapeData = await shapeRes.json();
-            const sample = (shapeData.results || []).slice(0, 10).map(r => ({
-              description: r.location?.description,
-              length: r.location?.length,
-              shape: r.location?.shape,
+            const all = shapeData.results || [];
+            const descriptions = all.map(r => r.location?.description || '(none)');
+            const highwayMatches = descriptions.filter(d => /I-?95|Delaware\s*Exp/i.test(d));
+            console.log('[DEBUG-I95-COUNT]', JSON.stringify({
+              total: all.length,
+              highwayMatches: highwayMatches.length,
+              highwayMatchSamples: highwayMatches.slice(0, 10),
+              allDescriptions: descriptions,
             }));
-            console.log('[DEBUG-I95-SHAPE]', JSON.stringify(sample));
           } catch (e) {
             console.log('[DEBUG-I95-SHAPE-ERROR]', e.message);
           }
