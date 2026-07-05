@@ -769,11 +769,13 @@
 
         <!-- I-676 (Vine Street Expressway): short connector -->
         <line x1="185" y1="155" x2="310" y2="130" stroke="#0d0d0d" stroke-width="6" stroke-linecap="round"/>
-        <line id="seg-i676"  x1="185" y1="155" x2="310" y2="130" stroke="#222222" stroke-width="3" stroke-linecap="round"/>
+        <line id="seg-i676-s" x1="185" y1="155"   x2="247.5" y2="142.5" stroke="#222222" stroke-width="3" stroke-linecap="round"/>
+        <line id="seg-i676-n" x1="247.5" y1="142.5" x2="310" y2="130"   stroke="#222222" stroke-width="3" stroke-linecap="round"/>
 
         <!-- US-30 (City Avenue / Lancaster Ave): diagonal NW -->
         <line x1="60"  y1="100" x2="185" y2="155" stroke="#0d0d0d" stroke-width="6" stroke-linecap="round"/>
-        <line id="seg-us30"  x1="60"  y1="100" x2="185" y2="155" stroke="#222222" stroke-width="3" stroke-linecap="round"/>
+        <line id="seg-us30-w" x1="60" y1="100"     x2="122.5" y2="127.5" stroke="#222222" stroke-width="3" stroke-linecap="round"/>
+        <line id="seg-us30-e" x1="122.5" y1="127.5" x2="185" y2="155"   stroke="#222222" stroke-width="3" stroke-linecap="round"/>
 
         <!-- I-476 (Blue Route): north–south west side -->
         <line x1="110" y1="8"   x2="110" y2="302" stroke="#0d0d0d" stroke-width="7" stroke-linecap="round"/>
@@ -2796,12 +2798,12 @@ async function fetchTravelTimes() {
     if (rows.length) {
       allTravelTimes = rows.map(r => ({
         _road: r.road,
-        _dir: '',
+        _dir: r.direction || '',
         Name: r.name || r.road,
         CurrentSpeedMph: r.current_speed_mph,
         JamFactor: r.jam_factor,
-        TravelTimeID: r.road,
-      })).sort((a,b) => (a._road||'').localeCompare(b._road||''));
+        TravelTimeID: `${r.road}-${r.direction||''}`,
+      })).sort((a,b) => (a._road||'').localeCompare(b._road||'') || (a._dir||'').localeCompare(b._dir||''));
       ttFetchedAt = new Date();
       _brief.tt = true;
       renderTravelTimes();
@@ -2866,11 +2868,11 @@ function updateTrafficMap() {
     return r.JamFactor<=3?'#3dd62a':r.JamFactor<=7?'#f0a500':'#e63946';
   }
   const segs=[
-    ['seg-i95-n','I-95','↑'],['seg-i95-s','I-95','↓'],
-    ['seg-i76-e','I-76','→'],['seg-i76-w','I-76','←'],
-    ['seg-i676','I-676',null],
-    ['seg-us30','US-30',null],
-    ['seg-i476-n','I-476','↑'],['seg-i476-s','I-476','↓'],
+    ['seg-i95-n','I-95','N'],['seg-i95-s','I-95','S'],
+    ['seg-i76-e','I-76','E'],['seg-i76-w','I-76','W'],
+    ['seg-i676-n','I-676','N'],['seg-i676-s','I-676','S'],
+    ['seg-us30-e','US-30','E'],['seg-us30-w','US-30','W'],
+    ['seg-i476-n','I-476','N'],['seg-i476-s','I-476','S'],
   ];
   for (const [id,road,dir] of segs) {
     const el=document.getElementById(id);
@@ -3558,9 +3560,10 @@ function generateOpsBrief() {
   if (_brief.tt && allTravelTimes.length>0) {
     const worst=allTravelTimes.reduce((best,r)=>(r.JamFactor??0)>(best.JamFactor??0)?r:best);
     const jam=worst.JamFactor??0;
-    if (jam>7) bullets.push({color:'red',   text:`Heavy delay on ${worst._road} — jam factor ${jam}/10.`});
+    const worstLabel = worst._dir ? `${worst._road} ${worst._dir}` : worst._road;
+    if (jam>7) bullets.push({color:'red',   text:`Heavy delay on ${worstLabel} — jam factor ${jam}/10.`});
     else if (jam>3) {
-      bullets.push({color:'amber', text:`Moderate congestion on ${worst._road} — jam factor ${jam}/10.`});
+      bullets.push({color:'amber', text:`Moderate congestion on ${worstLabel} — jam factor ${jam}/10.`});
     } else {
       bullets.push({color:'green', text:'Highway corridors clear.'});
     }
