@@ -17,31 +17,26 @@ async function fetchFlow(bbox) {
   return data.results || [];
 }
 
-function aggregate(results) {
-  let lenSum = 0, speedLenSum = 0, freeFlowLenSum = 0, jamSum = 0, n = 0;
-  for (const r of results) {
+function aggregate(results, namePattern) {
+  const highwayLinks = results.filter(r => namePattern.test(r.location?.description || ''));
+  let lenSum = 0, speedLenSum = 0, jamSum = 0, n = 0;
+  for (const r of highwayLinks) {
     const len = r.location?.length;
     const flow = r.currentFlow;
-    if (!len || !flow || flow.speed == null || flow.freeFlow == null) continue;
+    if (!len || !flow || flow.speed == null) continue;
     lenSum += len;
     speedLenSum += flow.speed * len;
-    freeFlowLenSum += flow.freeFlow * len;
     jamSum += (flow.jamFactor ?? 0);
     n++;
   }
   if (!n || lenSum === 0) return null;
 
   const avgSpeedMph = (speedLenSum / lenSum) * MPS_TO_MPH;
-  const avgFreeFlowMph = (freeFlowLenSum / lenSum) * MPS_TO_MPH;
-  const miles = lenSum / 1609.34;
 
   return {
-    current_speed_mph:   Math.round(avgSpeedMph * 10) / 10,
-    free_flow_speed_mph: Math.round(avgFreeFlowMph * 10) / 10,
-    jam_factor:          Math.round((jamSum / n) * 10) / 10,
-    current_minutes:     Math.round((miles / avgSpeedMph) * 60),
-    average_minutes:     Math.round((miles / avgFreeFlowMph) * 60),
-    sample_count:        n,
+    current_speed_mph: Math.round(avgSpeedMph * 10) / 10,
+    jam_factor:         Math.round((jamSum / n) * 10) / 10,
+    sample_count:       n,
   };
 }
 
@@ -55,24 +50,7 @@ export default async function handler(req, res) {
     for (const hwy of HIGHWAYS) {
       try {
         const results = await fetchFlow(hwy.bbox);
-        // TEMP DEBUG — census check: does namePattern cleanly separate this
-        // highway's links from bbox cross-street contamination? Remove once
-        // all 5 roads are confirmed.
-        try {
-          const descriptions = results.map(r => r.location?.description || '(none)');
-          const kept = descriptions.filter(d => hwy.namePattern.test(d));
-          const discarded = descriptions.filter(d => !hwy.namePattern.test(d));
-          console.log(`[DEBUG-CENSUS-${hwy.road}]`, JSON.stringify({
-            total: descriptions.length,
-            kept: kept.length,
-            discarded: discarded.length,
-            keptSamples: [...new Set(kept)].slice(0, 15),
-            discardedSamples: [...new Set(discarded)].slice(0, 25),
-          }));
-        } catch (e) {
-          console.log(`[DEBUG-CENSUS-${hwy.road}-ERROR]`, e.message);
-        }
-        const agg = aggregate(results);
+        const agg = aggregate(results, hwy.namePattern);
         if (agg) rows.push({ road: hwy.road, name: hwy.name, ...agg, updated_at: new Date().toISOString() });
       } catch (e) {
         console.warn(`[cron-traffic] ${hwy.road} failed:`, e.message);

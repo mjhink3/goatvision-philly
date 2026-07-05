@@ -1410,34 +1410,6 @@ async function getHistoricalBaseline(category, locationKey) {
   }
 }
 
-// ── Travel time telemetry ──────────────────────────────────
-function telemetryTT(routes) {
-  if (!_supa || !routes.length) return;
-  const wx = _twx(), t = _tnow(), todayEvs = _todayEvs();
-  const isGameDay = todayEvs.length > 0;
-  const gameType  = todayEvs[0]?.team?.sport || null;
-  const rows = routes.map(r => ({
-    route_id:        String(r.TravelTimeID || r._road + r._dir),
-    route_name:      r.Name || r._road,
-    current_minutes: r.CurrentTime ?? null,
-    average_minutes: r.AverageTime ?? null,
-    delta_minutes:   (r.CurrentTime != null && r.AverageTime != null) ? r.CurrentTime - r.AverageTime : null,
-    delta_percent:   (r.AverageTime > 0) ? Math.round(((r.CurrentTime - r.AverageTime) / r.AverageTime) * 1000) / 10 : null,
-    hour_of_day:     t.h,
-    day_of_week:     t.dow,
-    weather_code:    wx.weather_code ?? 0,
-    precipitation:   wx.precipitation_probability ?? 0,
-    is_game_day:     isGameDay,
-    game_type:       gameType,
-    location_key:    'PHL',
-  }));
-  try {
-    _supa.from('transit_telemetry').insert(rows).then(({ error }) => {
-      if (error) console.warn('[Telemetry] transit_telemetry:', error.message);
-    });
-  } catch(e) { console.warn('[Telemetry] transit_telemetry exception:', e.message); }
-}
-
 // ── 311 call telemetry (equivalent of sfd_telemetry) ──────
 function telemetry311(dispatches) {
   if (!_supa) return;
@@ -2804,8 +2776,7 @@ function renderSEPTAMap() {
   }
 
 // ╔══════════════════════════════════════════════════════════╗
-//  HIGHWAY TRAVEL TIMES — 511PA / PennDOT
-//  Falls back to static route table when no key
+//  HIGHWAY TRAVEL TIMES — HERE Traffic Flow (via /api/traveltimes → Supabase traffic_snapshot)
 // ╚══════════════════════════════════════════════════════════╝
 let ttRoadFilter = 'ALL';
 
@@ -2820,15 +2791,14 @@ async function fetchTravelTimes() {
         _road: r.road,
         _dir: '',
         Name: r.name || r.road,
-        CurrentTime: r.current_minutes,
-        AverageTime: r.average_minutes,
+        CurrentSpeedMph: r.current_speed_mph,
+        JamFactor: r.jam_factor,
         TravelTimeID: r.road,
       })).sort((a,b) => (a._road||'').localeCompare(b._road||''));
       ttFetchedAt = new Date();
       _brief.tt = true;
       renderTravelTimes();
       updateTrafficMap();
-      telemetryTT(allTravelTimes);
       document.getElementById('tt-ts').textContent = `Refreshed ${ts(ttFetchedAt)} · ${allTravelTimes.length} routes`;
       return;
     }
@@ -2841,33 +2811,27 @@ async function fetchTravelTimes() {
   document.getElementById('tt-ts').textContent = 'Live data unavailable';
 }
 
-async function renderTravelTimes() {
+function renderTravelTimes() {
   const filtered = ttRoadFilter==='ALL' ? allTravelTimes : allTravelTimes.filter(r=>r._road===ttRoadFilter);
   if (!filtered.length) { document.getElementById('tt-list').innerHTML=`<div class="loading-msg">No routes for ${ttRoadFilter}</div>`; return; }
 
-  const baselines = await Promise.all(
-    filtered.map(r => getHistoricalBaseline('traffic', String(r.TravelTimeID)))
-  );
-
   let html='', lastRoad=null;
   for (let i=0; i<filtered.length; i++) {
-    const r=filtered[i], baseline=baselines[i];
+    const r=filtered[i];
     if (ttRoadFilter==='ALL' && r._road!==lastRoad) {
       html+=`<div class="tt-group-header">${r._road}</div>`; lastRoad=r._road;
     }
-    const cur=r.CurrentTime??0, avg=r.AverageTime??0, ratio=avg>0?cur/avg:1, delta=cur-avg;
+    const speed=r.CurrentSpeedMph??0, jam=r.JamFactor??0;
     let bc, bt;
-    if (ratio<=1.1)      { bc='tt-ok';   bt=delta<=0?`−${Math.abs(delta)}m`:'ON TIME'; }
-    else if (ratio<=1.5) { bc='tt-warn'; bt=`+${delta}m`; }
-    else                 { bc='tt-bad';  bt=`+${delta}m`; }
-    if (delta===0&&ratio<=1.1) bt='ON TIME';
+    if (jam<=3)      { bc='tt-ok';   bt='FREE FLOW'; }
+    else if (jam<=7) { bc='tt-warn'; bt='SLOW'; }
+    else             { bc='tt-bad';  bt='HEAVY DELAY'; }
     const name = (r.Name||'').replace(/\s*(HOV|EL)\s*$/i,'').trim();
-    const avgDisplay = baseline ? `7d avg: ${baseline.avg}m` : `avg ${avg}m`;
     html+=`<div class="tt-row" title="${r.Name||''}">
       <span class="tt-tag">${r._road} ${r._dir}</span>
       <span class="tt-name">${name}</span>
-      <span class="tt-cur">${cur}<span class="tt-cur-unit">m</span></span>
-      <span class="tt-avg">${avgDisplay}</span>
+      <span class="tt-cur">${speed}<span class="tt-cur-unit">mph</span></span>
+      <span class="tt-avg">Jam: ${jam}/10</span>
       <span class="tt-badge ${bc}">${bt}</span>
     </div>`;
   }
@@ -2884,16 +2848,15 @@ document.querySelectorAll('.tt-filter-btn').forEach(btn => {
 });
 
 // ╔══════════════════════════════════════════════════════════╗
-//  TRAFFIC FLOW MAP — SVG colored by travel times
+//  TRAFFIC FLOW MAP — SVG colored by live jam factor
 // ╚══════════════════════════════════════════════════════════╝
 function updateTrafficMap() {
   if (!allTravelTimes.length) return;
   function segColor(road, dir) {
     const r = allTravelTimes.find(x=>x._road===road&&(!dir||x._dir===dir))
            || allTravelTimes.find(x=>x._road===road);
-    if (!r) return '#222222';
-    const ratio=(r.AverageTime>0)?r.CurrentTime/r.AverageTime:1;
-    return ratio<=1.1?'#3dd62a':ratio<=1.5?'#f0a500':'#e63946';
+    if (!r || r.JamFactor==null) return '#222222';
+    return r.JamFactor<=3?'#3dd62a':r.JamFactor<=7?'#f0a500':'#e63946';
   }
   const segs=[
     ['seg-i95-n','I-95','↑'],['seg-i95-s','I-95','↓'],
@@ -2906,7 +2869,7 @@ function updateTrafficMap() {
     const el=document.getElementById(id);
     if (el) el.setAttribute('stroke',segColor(road,dir));
   }
-  document.getElementById('trafficmap-ts').textContent=`Updated ${ts()} · 511PA Travel Times`;
+  document.getElementById('trafficmap-ts').textContent=`Updated ${ts()} · HERE Traffic Flow`;
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -3181,11 +3144,11 @@ function renderCoffee(data) {
   if (wind>=25)        { demand+=8; if (!factors.some(f=>f.includes('Rain')||f==='Cold snap')) factors.push('Windy'); }
 
   if (allTravelTimes.length) {
-    const ratios=allTravelTimes.filter(r=>r.AverageTime>0).map(r=>r.CurrentTime/r.AverageTime);
-    if (ratios.length) {
-      const avg=ratios.reduce((s,v)=>s+v,0)/ratios.length;
-      if (avg>1.4)      { demand+=12; factors.push('Heavy traffic'); }
-      else if (avg>1.2) { demand+=6;  factors.push('Moderate traffic'); }
+    const jams=allTravelTimes.filter(r=>r.JamFactor!=null).map(r=>r.JamFactor);
+    if (jams.length) {
+      const avgJam=jams.reduce((s,v)=>s+v,0)/jams.length;
+      if (avgJam>7)      { demand+=12; factors.push('Heavy traffic'); }
+      else if (avgJam>3) { demand+=6;  factors.push('Moderate traffic'); }
     }
   }
 
@@ -3586,17 +3549,11 @@ function generateOpsBrief() {
 
   // 1. Traffic
   if (_brief.tt && allTravelTimes.length>0) {
-    const worst=allTravelTimes.reduce((best,r)=>{
-      const db=(r.CurrentTime??0)-(r.AverageTime??0);
-      const da=(best.CurrentTime??0)-(best.AverageTime??0);
-      return db>da?r:best;
-    });
-    const delay=(worst.CurrentTime??0)-(worst.AverageTime??0);
-    if (delay>15) bullets.push({color:'red',   text:`Heavy delay on ${worst._road} — +${delay} min above average.`});
-    else if (delay>5) {
-      const dirs={'↑':'northbound','↓':'southbound','→':'eastbound','←':'westbound'};
-      const dw=dirs[worst._dir]?dirs[worst._dir]+' ':'';
-      bullets.push({color:'amber', text:`Moderate ${dw}congestion on ${worst._road}.`});
+    const worst=allTravelTimes.reduce((best,r)=>(r.JamFactor??0)>(best.JamFactor??0)?r:best);
+    const jam=worst.JamFactor??0;
+    if (jam>7) bullets.push({color:'red',   text:`Heavy delay on ${worst._road} — jam factor ${jam}/10.`});
+    else if (jam>3) {
+      bullets.push({color:'amber', text:`Moderate congestion on ${worst._road} — jam factor ${jam}/10.`});
     } else {
       bullets.push({color:'green', text:'Highway corridors clear.'});
     }
