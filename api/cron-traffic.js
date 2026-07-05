@@ -56,8 +56,23 @@ export default async function handler(req, res) {
       try {
         const results = await fetchFlow(hwy.bbox);
         if (hwy.road === 'I-95' && results.length) {
-          // TEMP DEBUG — remove after inspecting real HERE v7 field names
-          console.log('[DEBUG-I95-RAW]', JSON.stringify(results[0]));
+          // TEMP DEBUG — evaluating whether shape-referenced links give a usable
+          // directional signal and whether description text cleanly separates
+          // highway links from cross streets. Remove after inspection.
+          try {
+            const [west, south, east, north] = hwy.bbox;
+            const shapeUrl = `https://data.traffic.hereapi.com/v7/flow?in=bbox:${west},${south},${east},${north}&locationReferencing=shape&apiKey=${process.env.HERE_API_KEY}`;
+            const shapeRes = await fetch(shapeUrl);
+            const shapeData = await shapeRes.json();
+            const sample = (shapeData.results || []).slice(0, 10).map(r => ({
+              description: r.location?.description,
+              length: r.location?.length,
+              shape: r.location?.shape,
+            }));
+            console.log('[DEBUG-I95-SHAPE]', JSON.stringify(sample));
+          } catch (e) {
+            console.log('[DEBUG-I95-SHAPE-ERROR]', e.message);
+          }
         }
         const agg = aggregate(results);
         if (agg) rows.push({ road: hwy.road, name: hwy.name, ...agg, updated_at: new Date().toISOString() });
