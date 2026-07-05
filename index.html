@@ -508,7 +508,7 @@
     .brand-city { display:none; }
     .brand-tagline { font-size:8px; margin-top:2px; }
     .header-right { flex-direction:column; align-items:flex-end; gap:2px; }
-    #header .header-right span:not(#sys-time) { display:none; }
+    #header .header-right span:not(#sys-time):not(#sys-time-wrap):not(.cond-sub) { display:none; }
     #sys-time { font-size:13px; }
     .panel-header { padding:5px 8px; }
     .panel-title  { font-size:8px; white-space:normal; word-break:break-word; }
@@ -662,7 +662,10 @@
     <span><span class="dot dot-gray"  id="amtrak-dot"></span> &#128647; Amtrak</span>
     <span><span class="dot dot-gray"  id="trauma-dot"></span> &#128736; Trauma</span>
     <span><span class="dot dot-gray"  id="phl-dot"></span> &#9992; PHL</span>
-    <span id="sys-time">--:--:--</span>
+    <span id="sys-time-wrap" style="display:flex;flex-direction:column;align-items:center;gap:1px">
+      <span id="sys-time">--:--:--</span>
+      <span class="cond-sub" style="font-size:8px">Philly time</span>
+    </span>
   </div>
 </div>
 
