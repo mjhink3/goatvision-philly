@@ -2,7 +2,7 @@ const HIGHWAYS = [
   { road: 'I-95',  name: 'I-95 (Delaware Expressway)',       bbox: [-75.14, 39.88, -75.03, 40.08],     namePattern: /I-?95|Delaware\s*Exp/i },
   { road: 'I-76',  name: 'I-76 (Schuylkill Expressway)',     bbox: [-75.40, 39.94, -75.17, 40.10],     namePattern: /I-?76|Schuylkill\s*Exp/i },
   { road: 'I-676', name: 'I-676 (Vine St Expressway)',       bbox: [-75.165, 39.955, -75.145, 39.965], namePattern: /I-?676|Vine\s*St\s*Exp/i },
-  { road: 'US-30', name: 'US-30 (City Ave / Lancaster Ave)', bbox: [-75.24, 39.99, -75.19, 40.03],     namePattern: /US-?30\b/i },
+  { road: 'US-30', name: 'US-30 (City Ave / Lancaster Ave)', bbox: [-75.24, 39.99, -75.19, 40.03],     namePattern: /US-?30\b|City\s*Ave|Lancaster\s*Ave/i },
   { road: 'I-476', name: 'I-476 (Blue Route)',               bbox: [-75.36, 39.90, -75.30, 40.10],     namePattern: /I-?476\b/i },
 ];
 
