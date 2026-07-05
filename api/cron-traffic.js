@@ -17,6 +17,23 @@ async function fetchFlow(bbox) {
   return data.results || [];
 }
 
+async function fetchFlowShape(bbox) {
+  const [west, south, east, north] = bbox;
+  const url = `https://data.traffic.hereapi.com/v7/flow?in=bbox:${west},${south},${east},${north}&locationReferencing=shape&apiKey=${process.env.HERE_API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HERE flow shape request failed: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.results || [];
+}
+
+function bearingDeg(lat1, lon1, lat2, lon2) {
+  const toRad = d => d * Math.PI / 180;
+  const phi1 = toRad(lat1), phi2 = toRad(lat2), dLambda = toRad(lon2 - lon1);
+  const y = Math.sin(dLambda) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
 function aggregate(results, namePattern) {
   const highwayLinks = results.filter(r => namePattern.test(r.location?.description || ''));
   let lenSum = 0, speedLenSum = 0, jamSum = 0, n = 0;
@@ -50,6 +67,37 @@ export default async function handler(req, res) {
     for (const hwy of HIGHWAYS) {
       try {
         const results = await fetchFlow(hwy.bbox);
+
+        if (hwy.road === 'I-95') {
+          // TEMP DEBUG — checking whether shape-referenced links carry enough
+          // points to compute a reliable bearing, before building any
+          // directional split. Remove after inspection.
+          try {
+            const shapeResults = await fetchFlowShape(hwy.bbox);
+            const filtered = shapeResults.filter(r => hwy.namePattern.test(r.location?.description || ''));
+            const sample = filtered.slice(0, 8).map(r => {
+              const linkSegs = r.location?.shape?.links || [];
+              const allPoints = linkSegs.flatMap(l => l.points || []);
+              const first = allPoints[0];
+              const last = allPoints[allPoints.length - 1];
+              const bearing = (first && last)
+                ? Math.round(bearingDeg(first.lat, first.lng, last.lat, last.lng))
+                : null;
+              return {
+                description: r.location?.description,
+                length: r.location?.length,
+                numLinkSegments: linkSegs.length,
+                totalPoints: allPoints.length,
+                first, last,
+                bearingDeg: bearing,
+              };
+            });
+            console.log('[DEBUG-I95-BEARING]', JSON.stringify({ totalFiltered: filtered.length, sample }));
+          } catch (e) {
+            console.log('[DEBUG-I95-BEARING-ERROR]', e.message);
+          }
+        }
+
         const agg = aggregate(results, hwy.namePattern);
         if (agg) rows.push({ road: hwy.road, name: hwy.name, ...agg, updated_at: new Date().toISOString() });
       } catch (e) {
