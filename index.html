@@ -1270,7 +1270,6 @@
 const CONFIG = {
   PENNDOT_KEY:      '',             // 511PA / PennDOT API key — register at developer.penndot.gov
   SEPTA_KEY:        '',             // SEPTA API key (optional — public endpoints work without)
-  TICKETMASTER_KEY: 'EqgsmyF0kcYqZSX1w3tHMFtAVo1kTn9X',
   SUPABASE_URL:      'https://scsdstpabzkiqnvsskts.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjc2RzdHBhYnpraXFudnNza3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTUxNzcsImV4cCI6MjA5NTI5MTE3N30.HMo41UCsWsCwk75GxoujLcIlwlZDhXPNnLZ1x7K8VV8',
   REFRESH_WEATHER_MS:   5 * 60 * 1000,
@@ -2974,22 +2973,15 @@ async function fetchEvents() {
 }
 
 async function fetchTicketmaster() {
-  if (!CONFIG.TICKETMASTER_KEY) return;
   const now = new Date();
   const end = new Date(now.getTime() + 14 * 86400000);
   const fmt = d => d.toISOString().split('T')[0];
-  const url = `https://app.ticketmaster.com/discovery/v2/events.json` +
-    `?apikey=${CONFIG.TICKETMASTER_KEY}` +
-    `&city=Philadelphia&stateCode=PA&radius=15&unit=miles` +
-    `&size=50&sort=date,asc` +
-    `&startDateTime=${fmt(now)}T00:00:00Z` +
-    `&endDateTime=${fmt(end)}T23:59:59Z`;
 
   const LARGE_VENUES = ['wells fargo center', 'lincoln financial field', 'citizens bank park', 'subaru park', 'mann center', 'kimmel center', 'fillmore', 'tower theater'];
   const SMALL_VENUES = ['union transfer', 'first unitarian church', 'world cafe live', 'underground arts', 'the foundry', 'boot & saddle', 'milkboy'];
 
   try {
-    const res = await fetch(url);
+    const res = await fetch('/api/events');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const raw  = data?._embedded?.events || [];
