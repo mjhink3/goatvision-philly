@@ -249,6 +249,7 @@
   .tt-row:last-child { border-bottom:none; }
   .tt-row:hover { background:var(--bg3); }
   .tt-tag  { font-size:9px; font-weight:700; letter-spacing:0.05em; color:var(--gv-green); white-space:nowrap; }
+  .dir-arrow { vertical-align:-1px; }
   .tt-name { font-size:10px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tt-cur  { font-size:17px; font-weight:700; color:var(--text-bright); text-align:right; white-space:nowrap; }
   .tt-cur-unit { font-size:9px; color:var(--text-dim); font-weight:400; }
@@ -2791,6 +2792,22 @@ function renderSEPTAMap() {
 // ╔══════════════════════════════════════════════════════════╗
 //  HIGHWAY TRAVEL TIMES — HERE Traffic Flow (via /api/traveltimes → Supabase traffic_snapshot)
 // ╚══════════════════════════════════════════════════════════╝
+
+// Shared direction-indicator icon — a single solid triangle rotated per direction, so all
+// four directions render with identical weight/size instead of relying on font glyphs
+// (Unicode →/← lose their arrowhead to anti-aliasing at small sizes in JetBrains Mono and
+// read as a bare hyphen, while ↑/↓ don't — this sidesteps font rendering entirely).
+// Valid as a nested element in both HTML and SVG contexts. Same icon used on
+// goatvision-seattle and goatvision-dmv.
+const DIR_ROTATE = { N:-90, S:90, E:0, W:180 };
+function dirArrowSVG(letter, size, color, x, y) {
+  const rot = DIR_ROTATE[letter];
+  if (rot == null) return '';
+  const px = x != null ? ` x="${x}"` : '';
+  const py = y != null ? ` y="${y}"` : '';
+  return `<svg class="dir-arrow"${px}${py} width="${size||9}" height="${size||9}" viewBox="0 0 10 10" style="transform:rotate(${rot}deg);transform-origin:center"><polygon points="1.5,1.5 8.5,5 1.5,8.5" fill="${color||'currentColor'}"/></svg>`;
+}
+
 let ttRoadFilter = 'ALL';
 
 async function fetchTravelTimes() {
@@ -2841,7 +2858,7 @@ function renderTravelTimes() {
     else             { bc='tt-bad';  bt='HEAVY DELAY'; }
     const name = (r.Name||'').replace(/\s*(HOV|EL)\s*$/i,'').trim();
     html+=`<div class="tt-row" title="${r.Name||''}">
-      <span class="tt-tag">${r._road} ${r._dir}</span>
+      <span class="tt-tag">${r._road} ${dirArrowSVG(r._dir)}</span>
       <span class="tt-name">${name}</span>
       <span class="tt-cur">${speed}<span class="tt-cur-unit">mph</span></span>
       <span class="tt-avg">Jam: ${jam}/10</span>
@@ -3557,7 +3574,7 @@ function generateOpsBrief() {
   if (_brief.tt && allTravelTimes.length>0) {
     const worst=allTravelTimes.reduce((best,r)=>(r.JamFactor??0)>(best.JamFactor??0)?r:best);
     const jam=worst.JamFactor??0;
-    const worstLabel = worst._dir ? `${worst._road} ${worst._dir}` : worst._road;
+    const worstLabel = worst._dir ? `${worst._road} ${dirArrowSVG(worst._dir)}` : worst._road;
     if (jam>7) bullets.push({color:'red',   text:`Heavy delay on ${worstLabel} — jam factor ${jam}/10.`});
     else if (jam>3) {
       bullets.push({color:'amber', text:`Moderate congestion on ${worstLabel} — jam factor ${jam}/10.`});
