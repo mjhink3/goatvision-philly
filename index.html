@@ -260,7 +260,7 @@
   }
   .tt-filter-btn:hover, .tt-filter-btn.active { background:var(--blue-dim); border-color:var(--gv-green); color:var(--text-bright); }
   #tt-list { max-height:420px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
-  .tt-row { display:grid; grid-template-columns:52px 1fr auto auto 56px; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--border); transition:background 0.1s; }
+  .tt-row { display:grid; grid-template-columns:68px 1fr auto auto 56px; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--border); transition:background 0.1s; }
   .tt-row:last-child { border-bottom:none; }
   .tt-row:hover { background:var(--bg3); }
   .tt-tag  { font-size:9px; font-weight:700; letter-spacing:0.05em; color:var(--gv-green); white-space:nowrap; }
@@ -2840,6 +2840,7 @@ async function fetchTravelTimes() {
         _dir: r.direction || '',
         Name: r.name || r.road,
         CurrentSpeedMph: r.current_speed_mph,
+        FreeFlowSpeedMph: r.free_flow_speed_mph,
         JamFactor: r.jam_factor,
         TravelTimeID: `${r.road}-${r.direction||''}`,
       })).sort((a,b) => (a._road||'').localeCompare(b._road||'') || (a._dir||'').localeCompare(b._dir||''));
@@ -2869,17 +2870,30 @@ function renderTravelTimes() {
     if (ttRoadFilter==='ALL' && r._road!==lastRoad) {
       html+=`<div class="tt-group-header">${r._road}</div>`; lastRoad=r._road;
     }
-    const speed=r.CurrentSpeedMph??0, jam=r.JamFactor??0;
+    const speed=r.CurrentSpeedMph??0, freeFlow=r.FreeFlowSpeedMph;
+    // Standardized to match Seattle/DMV: current value vs a typical/average reference, with a
+    // ratio-classified badge carrying the numeric delta — instead of HERE's raw jam_factor
+    // index. freeFlow is HERE's own per-link typical (uncongested) speed, already present in
+    // the same flow response the cron job fetches, length-weighted the same way as current
+    // speed (see api/cron-traffic.js). Ratio thresholds (0.909/0.667) are the speed-domain
+    // equivalent of Seattle/DMV's time-domain ratio<=1.1/<=1.5 (i.e. current within 10%/50%
+    // of typical), since slower-than-typical is bad here instead of longer-than-typical.
+    const ratio = freeFlow ? speed/freeFlow : null;
+    const deltaMph = freeFlow != null ? Math.round(speed - freeFlow) : null;
     let bc, bt;
-    if (jam<=3)      { bc='tt-ok';   bt='FREE FLOW'; }
-    else if (jam<=7) { bc='tt-warn'; bt='SLOW'; }
-    else             { bc='tt-bad';  bt='HEAVY DELAY'; }
-    const name = (r.Name||'').replace(/\s*(HOV|EL)\s*$/i,'').trim();
+    if (ratio == null)     { bc='tt-warn'; bt='N/A'; }
+    else if (ratio>=0.909) { bc='tt-ok';   bt = deltaMph<0 ? `${deltaMph} mph` : 'ON TIME'; }
+    else if (ratio>=0.667) { bc='tt-warn'; bt = `${deltaMph} mph`; }
+    else                   { bc='tt-bad';  bt = `${deltaMph} mph`; }
+    const avgDisplay = freeFlow != null ? `Typical: ${Math.round(freeFlow)} mph` : 'Typical unavailable';
+    // Strip the redundant "(Northbound)"/"(Southbound)"/etc. suffix cron-traffic.js appends —
+    // now shown explicitly and compactly via the direction letter in tt-tag instead.
+    const name = (r.Name||'').replace(/\s*(HOV|EL)\s*$/i,'').replace(/\s*\((Northbound|Southbound|Eastbound|Westbound)\)\s*$/i,'').trim();
     html+=`<div class="tt-row" title="${r.Name||''}">
-      <span class="tt-tag">${r._road} ${dirArrowSVG(r._dir)}</span>
+      <span class="tt-tag">${r._road} ${r._dir} ${dirArrowSVG(r._dir)}</span>
       <span class="tt-name">${name}</span>
       <span class="tt-cur">${speed}<span class="tt-cur-unit">mph</span></span>
-      <span class="tt-avg">Jam: ${jam}/10</span>
+      <span class="tt-avg">${avgDisplay}</span>
       <span class="tt-badge ${bc}">${bt}</span>
     </div>`;
   }

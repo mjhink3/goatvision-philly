@@ -64,22 +64,28 @@ function meanBearing(bearings) {
 }
 
 function aggregateGroup(links) {
-  let lenSum = 0, speedLenSum = 0, jamSum = 0, n = 0;
+  let lenSum = 0, speedLenSum = 0, freeFlowLenSum = 0, freeFlowLen = 0, jamSum = 0, n = 0;
   for (const r of links) {
     const len = r.location?.length;
     const flow = r.currentFlow;
     if (!len || !flow || flow.speed == null) continue;
     lenSum += len;
     speedLenSum += flow.speed * len;
+    if (flow.freeFlow != null) { freeFlowLenSum += flow.freeFlow * len; freeFlowLen += len; }
     jamSum += (flow.jamFactor ?? 0);
     n++;
   }
   if (!n || lenSum === 0) return null;
   const avgSpeedMph = (speedLenSum / lenSum) * MPS_TO_MPH;
+  // HERE's own per-link free-flow (typical/uncongested) speed, length-weighted the same way as
+  // current speed — this is the "typical" reference the Travel Times panel compares against,
+  // already present in the same flow response we're fetching, no extra API call needed.
+  const avgFreeFlowMph = freeFlowLen > 0 ? (freeFlowLenSum / freeFlowLen) * MPS_TO_MPH : null;
   return {
-    current_speed_mph: Math.round(avgSpeedMph * 10) / 10,
-    jam_factor:         Math.round((jamSum / n) * 10) / 10,
-    sample_count:       n,
+    current_speed_mph:   Math.round(avgSpeedMph * 10) / 10,
+    free_flow_speed_mph: avgFreeFlowMph != null ? Math.round(avgFreeFlowMph * 10) / 10 : null,
+    jam_factor:          Math.round((jamSum / n) * 10) / 10,
+    sample_count:        n,
   };
 }
 
@@ -145,6 +151,7 @@ export default async function handler(req, res) {
             direction: dr.direction,
             name: `${hwy.name} (${DIR_NAME[dr.direction]})`,
             current_speed_mph: dr.current_speed_mph,
+            free_flow_speed_mph: dr.free_flow_speed_mph,
             jam_factor: dr.jam_factor,
             sample_count: dr.sample_count,
             updated_at: new Date().toISOString(),
