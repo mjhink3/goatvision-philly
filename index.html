@@ -68,6 +68,21 @@
   #quote-strip .q-mark { color:var(--gv-purple); font-size:16px; font-style:normal; flex-shrink:0; }
   #quote-strip .q-attr { color:var(--gv-green); font-style:normal; font-weight:600; }
 
+  /* ── CROSS-APP NAV STRIP ── */
+  #citynav-strip {
+    background: linear-gradient(90deg,#080808,#0f0f0f,#080808);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 18px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 10px; color: var(--text-dim);
+  }
+  #citynav-strip .citynav-link { text-decoration:none; font-weight:700; }
+  #citynav-strip .citynav-link:hover { text-decoration:underline; }
+  #citynav-strip .citynav-sep { color:var(--text-dim); }
+  #citynav-strip .citynav-philly  { color:#39d425; }
+  #citynav-strip .citynav-seattle { color:#7744f2; }
+  #citynav-strip .citynav-dmv     { color:#9b1b30; }
+
   /* ── LAYOUT ── */
   #main { padding:10px 12px; display:grid; gap:10px; }
 
@@ -637,6 +652,9 @@
     /* ── QUOTE STRIP ── */
     #quote-strip { font-size:9px; white-space:normal; }
 
+    /* ── CROSS-APP NAV STRIP ── */
+    #citynav-strip { font-size:9px; }
+
   }
 </style>
 </head>
@@ -669,6 +687,14 @@
       <span class="cond-sub" style="font-size:8px">Philly time</span>
     </span>
   </div>
+</div>
+
+<!-- ═════════════════════════════════════════ CROSS-APP NAV ═══ -->
+<div id="citynav-strip">
+  <span>Also live:</span>
+  <a class="citynav-link citynav-seattle" href="https://goatvisionseattle.vercel.app/" target="_blank" rel="noopener noreferrer">Seattle</a>
+  <span class="citynav-sep">&middot;</span>
+  <a class="citynav-link citynav-dmv" href="https://goatvisiondmv.vercel.app/" target="_blank" rel="noopener noreferrer">DMV</a>
 </div>
 
 <!-- ═════════════════════════════════════════ QUOTE STRIP ═══ -->
