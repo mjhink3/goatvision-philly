@@ -1612,7 +1612,7 @@ const _brief = { weather:false, tt:false, septa:false, transit:false, nws:false,
 
 async function fetchWeather() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${CITY_CONFIG.lat}&longitude=${CITY_CONFIG.lon}` +
-    `&current=temperature_2m,precipitation_probability,wind_speed_10m,weather_code,visibility,cloud_cover` +
+    `&current=temperature_2m,precipitation_probability,wind_speed_10m,weather_code,visibility,cloud_cover,relative_humidity_2m,apparent_temperature,uv_index` +
     `&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code` +
     `&daily=sunrise,sunset` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_hours=36&forecast_days=2&timezone=${encodeURIComponent(CITY_CONFIG.timezone)}`;
@@ -1639,13 +1639,55 @@ async function fetchWeather() {
   }
 }
 
+// ── Pollen helpers ───────────────────────────────────────────
+function pollenLevel(count) {
+  // grains/m³ thresholds (CAMS model output)
+  if (count == null || count <= 0) return { label:'None',     cls:'sev-green', sub:'No pollen detected' };
+  if (count < 10)                  return { label:'Low',      cls:'sev-green', sub:`${Math.round(count)} grains/m³` };
+  if (count < 50)                  return { label:'Moderate', cls:'sev-amber', sub:`${Math.round(count)} grains/m³` };
+  if (count < 200)                 return { label:'High',     cls:'sev-red',   sub:`${Math.round(count)} grains/m³` };
+  return                                  { label:'Very High',cls:'sev-red',   sub:`${Math.round(count)} grains/m³` };
+}
+function dominantPollen(aqd) {
+  // Returns the highest active pollen type and its count
+  const candidates = [];
+  if (aqd.birch_pollen  != null) candidates.push({ name:'Tree',    count: (aqd.alder_pollen??0) + (aqd.birch_pollen??0) });
+  if (aqd.grass_pollen  != null) candidates.push({ name:'Grass',   count: aqd.grass_pollen??0 });
+  if (aqd.ragweed_pollen!= null) candidates.push({ name:'Ragweed', count: aqd.ragweed_pollen??0 });
+  if (!candidates.length) return { name:'—', count: 0 };
+  return candidates.reduce((best, c) => c.count > best.count ? c : best, candidates[0]);
+}
+
+// ── UV helpers ───────────────────────────────────────────────
+function uvLabel(uv) {
+  if (uv == null) return { label:'—', cls:'', sub:'No data' };
+  if (uv <= 2)    return { label:`${uv.toFixed(1)}`, cls:'sev-green', sub:'Low' };
+  if (uv <= 5)    return { label:`${uv.toFixed(1)}`, cls:'sev-green', sub:'Moderate' };
+  if (uv <= 7)    return { label:`${uv.toFixed(1)}`, cls:'sev-amber', sub:'High — SPF recommended' };
+  if (uv <= 10)   return { label:`${uv.toFixed(1)}`, cls:'sev-red',   sub:'Very High — limit midday exposure' };
+  return                 { label:`${uv.toFixed(1)}`, cls:'sev-red',   sub:'Extreme — stay covered' };
+}
+
+// ── Feels Like helper ────────────────────────────────────────
+function feelsLikeSub(apparent, actual) {
+  const diff = apparent - actual;
+  if (diff <= -8) return 'Much colder than air temp';
+  if (diff <= -3) return 'Colder than air temp';
+  if (diff >=  8) return 'Much hotter — heat index';
+  if (diff >=  3) return 'Hotter than air temp';
+  return 'Close to air temp';
+}
+
 function renderConditions(data) {
   const c      = data.current;
   const code   = c.weather_code;
   const temp   = Math.round(c.temperature_2m);
+  const feel   = c.apparent_temperature != null ? Math.round(c.apparent_temperature) : null;
   const wind   = Math.round(c.wind_speed_10m);
   const precip = c.precipitation_probability ?? 0;
+  const humid  = c.relative_humidity_2m ?? 0;
   const vis    = c.visibility != null ? (c.visibility/1609).toFixed(1) : '—';
+  const uv     = c.uv_index ?? null;
   const clouds = c.cloud_cover ?? 0;
 
   const sunrise = data.daily?.sunrise?.[0];
@@ -1666,7 +1708,14 @@ function renderConditions(data) {
   const cells = [
     { label:'Conditions',  value:wmoIcon(code),  sub:wmoDesc(code),   sev:sevClass(ov) },
     { label:'Temperature', value:`${temp}`,       unit:'°F',  sub:'&nbsp;', sev:temp<=32?'sev-amber':'sev-green' },
+    feel != null ? {
+      label: temp >= 70 ? 'Heat Index' : 'Wind Chill',
+      value: `${feel}`, unit:'°F',
+      sub: feelsLikeSub(feel, temp),
+      sev: feel>=100?'sev-red':feel>=90?'sev-amber':feel<=20?'sev-red':feel<=32?'sev-amber':'sev-green'
+    } : { label:'Feels Like', value:'—', sub:'No data', sev:'' },
     { label:'Wind',        value:wind,            unit:' mph', sub:wind>=25?'HIGH WIND':wind>=15?'Breezy':'Calm', sev:wind>=30?'sev-red':wind>=20?'sev-amber':'sev-green' },
+    { label:'Humidity',    value:`${humid}`,      unit:'%',   sub:humid>=85?'Oppressive':humid>=70?'Muggy':humid>=55?'Humid':'Comfortable', sev:humid>=85?'sev-red':humid>=70?'sev-amber':'sev-green' },
     { label:'Precip',      value:`${precip}`,     unit:'%',   sub:precip>=70?'Likely':precip>=40?'Possible':'Unlikely', sev:precip>=70?'sev-red':precip>=40?'sev-amber':'sev-green' },
     { label:'Visibility',  value:vis,             unit:' mi',  sub:parseFloat(vis)<1?'Very Low':parseFloat(vis)<3?'Reduced':'Clear', sev:parseFloat(vis)<1?'sev-red':parseFloat(vis)<3?'sev-amber':'sev-green' },
     { label:'Rocky Steps?',value:rockyVal,        sub:rockySub,        sev:rockySev, smallVal:true },
@@ -1682,6 +1731,13 @@ function renderConditions(data) {
     cells.push({ label:'Smoke / PM2.5', value:pm25 != null ? pm25.toFixed(1) : '—', unit:' µg/m³',
       sub: smokeFlag ? 'Elevated PM2.5' : 'Air clear',
       sev: smokeFlag ? 'sev-amber' : 'sev-green', smallVal:true });
+
+    const dom = dominantPollen(aqiData);
+    const pl  = pollenLevel(dom.count);
+    cells.push({ label: `Pollen (${dom.name})`, value: pl.label, sub: pl.sub, sev: pl.cls, smallVal:true });
+
+    const uvInfo = uvLabel(uv);
+    cells.push({ label:'UV Index', value:uvInfo.label, sub:uvInfo.sub, sev:uvInfo.cls, smallVal:true });
   }
 
   document.getElementById('conditions-content').innerHTML = cells.map(cc => `
@@ -1746,7 +1802,7 @@ function aqiLevel(aqi) {
 
 async function fetchAirQuality() {
   const url = `https://air-quality-api.open-meteo.com/v1/air-quality` +
-    `?latitude=${CITY_CONFIG.lat}&longitude=${CITY_CONFIG.lon}&current=us_aqi,pm2_5,pm10&domains=cams_global`;
+    `?latitude=${CITY_CONFIG.lat}&longitude=${CITY_CONFIG.lon}&current=us_aqi,pm2_5,pm10,grass_pollen,ragweed_pollen,alder_pollen,birch_pollen&domains=cams_global`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
