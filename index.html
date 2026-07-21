@@ -102,10 +102,10 @@
   .sev-bg-amber { border-top:2px solid var(--amber); }
   .sev-bg-red   { border-top:2px solid var(--red);   }
 
-  /* ── UNIFIED ALERTS PANEL SECTIONS ── */
+  /* ── NWS ALERTS PANEL SECTIONS ── */
   .unified-section-label { padding:5px 10px; font-size:9px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:var(--gv-green); background:var(--bg3); border-bottom:1px solid var(--border); border-top:1px solid var(--border); }
   .unified-section-label:first-child { border-top:none; }
-  #unified-alerts-content { max-height:520px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  #nws-alerts-list { }
 
   /* ── DRIVE WINDOW ── */
   #drive-summary { padding:8px 10px; background:var(--bg4); border-bottom:1px solid var(--border); font-size:11px; color:var(--text); line-height:1.6; }
@@ -526,8 +526,8 @@
     .cond-cell:last-child { border-bottom:none; }
     .cond-value { font-size:16px; }
 
-    /* ── UNIFIED ALERTS ── */
-    #unified-alerts-content { max-height:none; overflow:visible; }
+    /* ── NWS ALERTS / INCIDENTS ── */
+    #incidents-list { max-height:none; }
     .nws-alert-item { flex-wrap:wrap; gap:4px; padding:6px 8px; }
     .nws-headline { white-space:normal; word-break:break-word; font-size:9px; }
     .nws-meta { white-space:normal; font-size:8px; }
@@ -654,7 +654,8 @@
   <div class="header-right">
     <span><span class="dot dot-green" id="weather-dot"></span> &#9729; Weather</span>
     <span><span class="dot dot-gray"  id="aqi-dot"></span> &#127788; Air</span>
-    <span><span class="dot dot-gray"  id="nws-dot"></span> &#128680; Alerts</span>
+    <span><span class="dot dot-gray"  id="nws-dot"></span> &#128680; NWS</span>
+    <span><span class="dot dot-gray"  id="traffic-dot"></span> &#9888; Alerts</span>
     <span><span class="dot dot-gray"  id="septa-dot"></span> &#128650; SEPTA</span>
     <span><span class="dot dot-gray"  id="transit-dot"></span> &#128652; Rail</span>
     <span><span class="dot dot-gray"  id="pfd-dot"></span> &#128222; 311</span>
@@ -702,14 +703,26 @@
     <div id="conditions-content"><div class="loading-msg">Fetching weather…</div></div>
   </div>
 
-  <!-- ── UNIFIED ALERTS PANEL (NWS + Road Incidents + Hazards) ── -->
+  <!-- ── NWS ACTIVE ALERTS ── -->
   <div class="panel" id="nws-panel">
     <div class="panel-header">
-      <span class="panel-title"><span class="panel-icon">&#128680;</span> Active Alerts &amp; Road Conditions — Philadelphia Metro</span>
+      <span class="panel-title"><span class="panel-icon">&#128680;</span> NWS Active Weather Alerts — Philadelphia Metro</span>
       <span class="refresh-ts" id="nws-ts">—</span>
     </div>
-    <div id="unified-alerts-content"><div class="loading-msg">Checking alerts&hellip;</div></div>
-    <div style="padding:4px 12px 7px;font-size:9px;color:var(--text-dim);border-top:1px solid var(--border)">PennDOT RCRS Event Data (live, direct feed) — Road Incidents &amp; Closures section</div>
+    <div id="nws-alerts-list"><div class="loading-msg">Checking NWS&hellip;</div></div>
+    <div style="text-align:right;padding:4px 8px;font-size:8px;">
+      <a href="https://www.weather.gov/phi/" target="_blank" rel="noopener noreferrer" style="color:var(--text-dim);text-decoration:none;">NWS Philadelphia/Mount Holly Forecast Office &#8599;</a>
+    </div>
+  </div>
+
+  <!-- ── INCIDENTS ── -->
+  <div class="panel" id="incidents-panel">
+    <div class="panel-header">
+      <span class="panel-title"><span class="panel-icon">&#9888;</span> Active Incidents &amp; Alerts</span>
+      <span class="refresh-ts" id="incidents-ts">—</span>
+    </div>
+    <div id="incidents-list"><div class="loading-msg">Loading incidents&hellip;</div></div>
+    <div style="padding:4px 12px 7px;font-size:9px;color:var(--text-dim);border-top:1px solid var(--border)">PennDOT RCRS Event Data (live, direct feed) — Philadelphia County</div>
   </div>
 
   <!-- ── TRAVEL TIMES ── -->
@@ -1736,20 +1749,21 @@ async function fetchNWSAlerts() {
   } catch(e) {
     _brief.nws = true; // mark done even on failure so ops brief isn't blocked
   }
-  renderUnifiedAlerts();
+  renderNWSAlerts();
   const hasSevere = nwsAlerts.some(a => ['Extreme','Severe'].includes(a.properties?.severity));
   setDot('nws-dot', nwsAlerts.length === 0 ? 'green' : hasSevere ? 'red' : 'amber');
-  setDot('traffic-dot', nwsAlerts.length > 0 ? 'amber' : 'gray');
-  setDot('talerts-dot', hasSevere ? 'red' : nwsAlerts.length > 0 ? 'amber' : 'green');
   document.getElementById('nws-ts').textContent = `Refreshed ${ts()}`;
 }
 
-function renderUnifiedAlerts() {
-  const el = document.getElementById('unified-alerts-content');
+// Only ever touches #nws-alerts-list — the incidents panel (#incidents-list) is owned
+// entirely by fetchIncidents()/renderIncidents() and is never read or written here, so a
+// refresh of one panel can't silently clobber the other's rendered content.
+function renderNWSAlerts() {
+  const el = document.getElementById('nws-alerts-list');
   if (!el) return;
   const sections = [];
 
-  // ── Section 1: NWS Active Watches & Warnings ──────────────
+  // ── NWS Active Watches & Warnings ──────────────
   const sevOrder = { Extreme:0, Severe:1, Moderate:2, Minor:3, Unknown:4 };
   const sortedAlerts = [...nwsAlerts].sort((a,b) =>
     (sevOrder[a.properties?.severity]??4) - (sevOrder[b.properties?.severity]??4)
@@ -1778,16 +1792,7 @@ function renderUnifiedAlerts() {
       }).join('');
   sections.push(`<div class="unified-section-label">&#127785; NWS Weather Alerts</div>${nwsHtml}`);
 
-  // ── Section 2: Road Incidents (owned by fetchIncidents — RCRS live feed with NWS fallback) ──
-  // Preserve whatever fetchIncidents() already rendered here — this function re-runs on every
-  // NWS refresh and must not stomp real incident data back to the loading placeholder.
-  const existingIncidents = document.getElementById('incidents-list');
-  const incidentsHtml = existingIncidents
-    ? existingIncidents.outerHTML
-    : `<div id="incidents-list"><div class="loading-msg">Loading incidents…</div></div>`;
-  sections.push(`<div class="unified-section-label">&#9888; Road Incidents &amp; Closures — I-95 · I-76 · I-676</div>${incidentsHtml}`);
-
-  // ── Section 3: Weather impact + Game day (only when relevant) ──
+  // ── Weather impact + Game day context (only when relevant) ──
   const contextRows = [];
   if (weatherData) {
     const c = weatherData.current;
@@ -2007,25 +2012,23 @@ function render311(rows) {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-//  INCIDENTS — PennDOT RCRS (via /api/penndot) with NWS fallback
+//  INCIDENTS — PennDOT RCRS (via /api/penndot)
 // ╚══════════════════════════════════════════════════════════╝
+// Only ever touches #incidents-list, #incidents-ts, and traffic-dot — independent of
+// fetchNWSAlerts()/renderNWSAlerts(), which own the separate #nws-alerts-list panel.
 async function fetchIncidents() {
   try {
     const res = await fetch('/api/penndot');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const values = data.values || [];
-    if (values.length) {
-      renderIncidents(values);
-      setDot('nws-dot', 'green');
-      document.getElementById('nws-ts').textContent = `Refreshed ${ts()} · ${values.length} incidents`;
-      return;
-    }
-  } catch(e) { /* fall through to unified render */ }
-
-  // No live data — unified panel's NWS-based substitute handles the road-incidents section
-  renderUnifiedAlerts();
-  document.getElementById('nws-ts').textContent = `NWS source · ${ts()}`;
+    renderIncidents(values);
+    setDot('traffic-dot', 'green');
+    document.getElementById('incidents-ts').textContent = `Refreshed ${ts()} · ${values.length} incidents`;
+  } catch(e) {
+    setDot('traffic-dot', 'red');
+    document.getElementById('incidents-list').innerHTML = `<div class="error-msg">&#9888; Incidents failed: ${e.message}</div>`;
+  }
 }
 
 
@@ -3038,7 +3041,7 @@ async function fetchTicketmaster() {
 
     eventsData = [...espnOnly, ...newEvents].sort((a,b)=>a.date-b.date);
     renderEvents(eventsData);
-    renderUnifiedAlerts(); // refresh game day context in alerts panel
+    renderNWSAlerts(); // refresh game day context in the NWS alerts panel
     const tsEl = document.getElementById('events-ts');
     if (tsEl) tsEl.textContent = `Refreshed ${ts()} · ${eventsData.length} event${eventsData.length!==1?'s':''} found`;
     const nonSports = newEvents.filter(e=>e._segment!=='Sports');
@@ -3888,7 +3891,6 @@ async function fetchTrauma() {
 function init() {
   startClock();
   setDailyQuote();
-  renderUnifiedAlerts(); // ensure #incidents-list exists in the DOM before fetchIncidents/fetchNWSAlerts race
 
   fetchWeather();
   fetchAirQuality();
