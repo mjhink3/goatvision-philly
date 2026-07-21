@@ -3074,6 +3074,13 @@ async function fetchTicketmaster() {
     setDot('tm-dot', nonSports.length>0?'green':'amber');
   } catch(e) {
     console.warn('[Ticketmaster] fetch failed:', e.message);
+    setDot('tm-dot', 'red');
+    const tsEl = document.getElementById('events-ts');
+    if (tsEl) tsEl.textContent = `ESPN only · Ticketmaster unavailable · ${ts()}`;
+    const list = document.getElementById('events-list');
+    if (list && !document.getElementById('tm-degraded-note')) {
+      list.insertAdjacentHTML('afterbegin', `<div id="tm-degraded-note" class="error-msg" style="padding:8px 12px;text-align:left;font-size:10px;border-bottom:1px solid var(--border)">&#9888; Ticketmaster unavailable — showing ESPN sports schedule only, concerts &amp; other ticketed events may be missing.</div>`);
+    }
   }
 }
 
