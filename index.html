@@ -1414,6 +1414,23 @@ const _supa = (CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY)
   ? supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY)
   : null;
 
+// Anon key is SELECT-only (see supabase/migrations/*_lock_down_anon_to_select_only.sql in the
+// Seattle repo — all three cities share this project). Every write goes through /api/telemetry
+// instead, which uses the service-role key server-side.
+async function writeTelemetry(table, rows) {
+  try {
+    const res = await fetch('/api/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, rows: Array.isArray(rows) ? rows : [rows] }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      console.warn(`[Telemetry] ${table}:`, j.error || res.status);
+    }
+  } catch (e) { console.warn(`[Telemetry] ${table} exception:`, e.message); }
+}
+
 // ── Telemetry helpers ──────────────────────────────────────
 function _twx()     { return weatherData?.current ?? {}; }
 function _tnow()    { const d = new Date(); return { h: d.getHours(), dow: d.getDay(), mo: d.getMonth() + 1 }; }
@@ -1421,13 +1438,7 @@ function _todayEvs(){ const today = new Date().toDateString(); return (eventsDat
 
 // ── Condition snapshot (weather, AQI baselines) ────────────
 async function snapshotCondition(category, locationKey, value, rawJson = {}) {
-  if (!_supa) return;
-  try {
-    const { error } = await _supa.from('condition_snapshots').insert({
-      category, location_key: locationKey, value, raw_json: rawJson,
-    });
-    if (error) console.warn('[Supabase] snapshotCondition:', error.message);
-  } catch(e) { console.warn('[Supabase] snapshotCondition exception:', e.message); }
+  await writeTelemetry('condition_snapshots', { category, location_key: locationKey, value, raw_json: rawJson });
 }
 
 // ── Historical baseline via RPC (matches Seattle/DMV) ─────
@@ -1459,7 +1470,6 @@ async function getHistoricalBaseline(category, locationKey) {
 
 // ── 311 call telemetry (equivalent of sfd_telemetry) ──────
 function telemetry311(dispatches) {
-  if (!_supa) return;
   const wx = _twx(), t = _tnow(), todayEvs = _todayEvs();
   let fireSmoke = 0, floodWater = 0, hazard = 0, building = 0, other = 0;
   for (const d of dispatches) {
@@ -1470,43 +1480,34 @@ function telemetry311(dispatches) {
     else if (cat === 'Building Safety') building++;
     else                                other++;
   }
-  try {
-    _supa.from('sfd_telemetry').insert([{
-      window_start:      new Date(Date.now() - 6 * 3600000).toISOString(),
-      total_dispatches:  dispatches.length,
-      medical_count:     floodWater,    // repurpose field: flooding
-      fire_hazmat_count: fireSmoke + hazard,
-      other_count:       building + other,
-      hour_of_day:       t.h,
-      day_of_week:       t.dow,
-      weather_code:      wx.weather_code ?? 0,
-      precipitation:     wx.precipitation_probability ?? 0,
-      is_game_day:       todayEvs.length > 0,
-      location_key:      'PHL',
-    }]).then(({ error }) => {
-      if (error) console.warn('[Telemetry] sfd_telemetry:', error.message);
-    });
-  } catch(e) { console.warn('[Telemetry] sfd_telemetry exception:', e.message); }
+  writeTelemetry('sfd_telemetry', [{
+    window_start:      new Date(Date.now() - 6 * 3600000).toISOString(),
+    total_dispatches:  dispatches.length,
+    medical_count:     floodWater,    // repurpose field: flooding
+    fire_hazmat_count: fireSmoke + hazard,
+    other_count:       building + other,
+    hour_of_day:       t.h,
+    day_of_week:       t.dow,
+    weather_code:      wx.weather_code ?? 0,
+    precipitation:     wx.precipitation_probability ?? 0,
+    is_game_day:       todayEvs.length > 0,
+    location_key:      'PHL',
+  }]);
 }
 
 // ── AQI telemetry ──────────────────────────────────────────
 function telemetryAQIPHL(current) {
-  if (!_supa) return;
   const wx = _twx(), t = _tnow();
-  try {
-    _supa.from('aqi_telemetry').insert([{
-      aqi_value:    current.us_aqi    ?? null,
-      smoke_pm25:   current.pm2_5     ?? null,
-      weather_code: wx.weather_code   ?? 0,
-      wind_speed:   wx.wind_speed_10m ?? 0,
-      hour_of_day:  t.h,
-      day_of_week:  t.dow,
-      month:        t.mo,
-      location_key: 'PHL',
-    }]).then(({ error }) => {
-      if (error) console.warn('[Telemetry] aqi_telemetry:', error.message);
-    });
-  } catch(e) { console.warn('[Telemetry] aqi_telemetry exception:', e.message); }
+  writeTelemetry('aqi_telemetry', [{
+    aqi_value:    current.us_aqi    ?? null,
+    smoke_pm25:   current.pm2_5     ?? null,
+    weather_code: wx.weather_code   ?? 0,
+    wind_speed:   wx.wind_speed_10m ?? 0,
+    hour_of_day:  t.h,
+    day_of_week:  t.dow,
+    month:        t.mo,
+    location_key: 'PHL',
+  }]);
 }
 
 // ╔══════════════════════════════════════════════════════════╗
