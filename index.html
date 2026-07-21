@@ -1610,7 +1610,7 @@ function renderConditions(data) {
 
   const sunrise = data.daily?.sunrise?.[0];
   const sunset  = data.daily?.sunset?.[0];
-  const fmtTime = s => { if(!s) return '—'; const d=new Date(s); return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'}); };
+  const fmtTime = s => { if(!s) return '—'; const d=new Date(s); return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'}); };
   const sunriseStr = fmtTime(sunrise);
   const sunsetStr  = fmtTime(sunset);
 
@@ -1761,8 +1761,8 @@ function renderUnifiedAlerts() {
         const p   = f.properties || {};
         const sev = p.severity || 'Unknown';
         const cls = sev==='Extreme'?'nws-extreme':sev==='Severe'?'nws-severe':sev==='Moderate'?'nws-moderate':'nws-minor';
-        const exp = p.expires ? new Date(p.expires).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'}) : '—';
-        const onset = p.onset ? new Date(p.onset).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'}) : null;
+        const exp = p.expires ? new Date(p.expires).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'}) : '—';
+        const onset = p.onset ? new Date(p.onset).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'}) : null;
         const headline = (p.headline || p.description?.split('\n')[0] || '').slice(0, 180);
         return `<div class="nws-alert-item">
           <div>
@@ -1808,7 +1808,7 @@ function renderUnifiedAlerts() {
   const today = new Date().toDateString();
   const todayGames = (eventsData||[]).filter(e => e.date.toDateString() === today && e._source === 'espn');
   if (todayGames.length > 0) {
-    const gameStr = todayGames.map(e => `${shortTeamName(e.team.name)} ${e.date.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'})}`).join(' · ');
+    const gameStr = todayGames.map(e => `${shortTeamName(e.team.name)} ${e.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'})}`).join(' · ');
     contextRows.push(`<div style="display:flex;align-items:center;gap:8px;padding:6px 12px">
       <span>&#127919;</span>
       <span style="font-size:9px;color:var(--text-dim)">Game day — elevated South Philly traffic expected: ${gameStr}</span>
@@ -1981,7 +1981,7 @@ function render311(rows) {
   const listHtml = rows.slice(0, 30).map(r => {
     const { cls, icon } = call311Category(r.service_name, r.subject);
     const when = r.requested_datetime
-      ? new Date(r.requested_datetime).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/New_York' })
+      ? new Date(r.requested_datetime).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'America/New_York' })
       : '—';
     const label = r.service_name || r.subject || 'Request';
     const street = (r.address || 'Philadelphia')
@@ -2054,7 +2054,7 @@ function renderIncidents(alerts) {
     let startTime = '';
     if (a.dateTimeNotified) {
       const d = new Date(a.dateTimeNotified.replace(' ', 'T'));
-      if (!isNaN(d)) startTime = d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'});
+      if (!isNaN(d)) startTime = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'});
     }
     return `<div class="incident-item">
       <div><div class="incident-sev sev-${sev}">${sev}</div><div class="incident-road" style="margin-top:4px">${road} ${dir}</div></div>
@@ -2471,7 +2471,7 @@ function renderTransit(mflAlerts, bslAlerts, nhslAlerts = []) {
     { route: SEPTA_RAPID_ROUTES[3], alerts: [] }, // PATCO has no SEPTA alerts feed
   ];
 
-  const fmtTime = d => d ? d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'America/New_York' }) : '—';
+  const fmtTime = d => d ? d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true, timeZone:'America/New_York' }) : '—';
 
   const colsHtml = allRouteAlerts.map(({route, alerts}) => {
     const hasAlert = alerts.length > 0;
@@ -3071,7 +3071,7 @@ function renderEvents(events) {
       const day    = d.getDate();
       const mon    = d.toLocaleDateString('en-US',{month:'short',timeZone:'America/New_York'}).toUpperCase();
       const dow    = d.toLocaleDateString('en-US',{weekday:'short',timeZone:'America/New_York'}).toUpperCase();
-      const time   = d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'});
+      const time   = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'});
       const impact = multi?'SEVERE':ev.team.impact==='high'?'HIGH':ev.team.impact==='low'?'LOW':'MED';
       const bCls   = multi?'ebadge-severe':ev.team.impact==='high'?'ebadge-high':ev.team.impact==='low'?'ebadge-low':'ebadge-med';
       html += `<div class="event-item">
@@ -3278,7 +3278,7 @@ function renderTide(preds) {
   const rowsHtml=withDates.slice(0,6).map(p=>{
     const typeStr=p.type==='H'?'▲ High':'▼ Low';
     const typeCls=p.type==='H'?'sev-green':'sev-amber';
-    const t=p.dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'});
+    const t=p.dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'});
     const isPast=p.dt<=now;
     return `<div class="tide-row" style="${isPast?'opacity:0.45':''}">
       <span class="tide-type ${typeCls}">${typeStr}</span>
@@ -3630,7 +3630,7 @@ function generateOpsBrief() {
       bullets.push({color:'amber', text:`Elevated South Philly traffic tonight — ${names} at ${venuePt}.`});
     } else if (todayEv.length===1) {
       const ev=todayEv[0];
-      const time=ev.date.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'});
+      const time=ev.date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'});
       bullets.push({color:'amber', text:`${ev.team.name} home game — expect congestion near ${ev.venue.split(' ').slice(0,2).join(' ')} around ${time}.`});
     }
   }
@@ -3760,7 +3760,7 @@ async function fetchAmtrak() {
     enroute.sort(timeSort);
     departing.sort(timeSort);
 
-    const fmtTime = d => d ? new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'America/New_York'}) : '—';
+    const fmtTime = d => d ? new Date(d).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'}) : '—';
 
     function trainRow(train) {
       const p    = train._phlStop;
