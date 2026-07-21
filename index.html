@@ -2174,34 +2174,22 @@ function matchTrainLine(lineStr) {
 }
 
 async function fetchSEPTARegional() {
-  // Confirmed working endpoint (api path, not hackathon — hackathon serves a directory listing)
-  const TRAINVIEW_URL = 'https://www3.septa.org/api/TrainView/index.php';
-  const ALERTS_URL    = 'https://www3.septa.org/api/Alerts/index.php?req1=rr';
   const tsEl = document.getElementById('septa-ts');
 
-  // Helper: fetch through proxy chain, return parsed JSON or null
+  // Server-side proxy (api/septa.js) — SEPTA sends no CORS header at all, so this used to
+  // route through a chain of third-party CORS proxies (allorigins.win/corsproxy.io/
+  // api.codetabs.com). Confirmed via direct curl that all three are currently broken
+  // (allorigins timing out, corsproxy.io now requires a paid plan for this, codetabs
+  // erroring) — a first-party serverless proxy has no CORS restriction and needs none of them.
   async function proxiedJSON(url) {
-    for (const proxy of PROXIES) {
-      try {
-        const res = await fetch(proxy + encodeURIComponent(url));
-        if (!res.ok) continue;
-        const text = (await res.text()).trim();
-        if (!text || text[0] === '<') continue;  // HTML response — proxy served wrong thing
-        return JSON.parse(text);
-      } catch(e) { /* try next proxy */ }
-    }
-    // Last-resort direct fetch (succeeds when CORS is open or running locally)
     try {
       const res = await fetch(url);
-      if (res.ok) {
-        const text = (await res.text()).trim();
-        if (text && text[0] !== '<') return JSON.parse(text);
-      }
-    } catch(e) {}
-    return null;
+      if (!res.ok) return null;
+      return await res.json();
+    } catch(e) { return null; }
   }
 
-  const data = await proxiedJSON(TRAINVIEW_URL);
+  const data = await proxiedJSON('/api/septa?type=trainview');
 
   if (data && Array.isArray(data) && data.length > 0) {
     // train.line = full name e.g. "West Trenton", "Airport", "Lansdale"
@@ -2227,7 +2215,7 @@ async function fetchSEPTARegional() {
   }
 
   // data came back null, empty, or not an array — try alerts feed as fallback
-  const alerts = await proxiedJSON(ALERTS_URL);
+  const alerts = await proxiedJSON('/api/septa?type=alerts&req1=rr');
   if (alerts) {
     const list = Array.isArray(alerts) ? alerts : Object.values(alerts).flat();
     renderSEPTAAlertsFallback(list);
@@ -2238,7 +2226,7 @@ async function fetchSEPTARegional() {
   }
 
   // Total failure — show diagnostic so you know exactly what happened
-  const reason = data === null ? 'all proxies failed / CORS blocked'
+  const reason = data === null ? 'SEPTA API unreachable'
     : Array.isArray(data) && data.length === 0 ? 'API returned empty array (no trains active?)'
     : `unexpected response type: ${typeof data}`;
   setDot('septa-dot','amber');
@@ -2752,22 +2740,22 @@ function renderSEPTAMap() {
     <!-- E -->
     <text x="746" y="284" font-family="monospace" font-size="8" fill="${LINE_COLORS.TRE}" text-anchor="start">Trenton</text>
 
-    <!-- ══ LEGEND ══ -->
-    <rect x="12" y="12" width="188" height="128" fill="rgba(6,6,6,0.94)" rx="3" stroke="#222" stroke-width="1"/>
-    <text x="20" y="30" font-family="monospace" font-size="8" fill="#39d425" font-weight="700">LIVE GPS  (Regional Rail)</text>
-    <circle cx="24" cy="44" r="5" fill="#39d425" stroke="#060606" stroke-width="1.5"/>
-    <text x="34" y="48" font-family="monospace" font-size="7" fill="#b8b8b8">On time</text>
-    <circle cx="24" cy="60" r="5" fill="#f0a500" stroke="#060606" stroke-width="1.5"/>
-    <text x="34" y="64" font-family="monospace" font-size="7" fill="#b8b8b8">Late (&gt;5 min)</text>
-    <text x="20" y="80" font-family="monospace" font-size="8" fill="#505050" font-weight="700">SCHEDULED HEADWAY</text>
-    <circle cx="24" cy="94"  r="6" fill="#003DA5" stroke="#39d425" stroke-width="2"/>
-    <text x="34" y="98"  font-family="monospace" font-size="7" fill="#b8b8b8">MFL pulse</text>
-    <circle cx="24" cy="108" r="6" fill="#FF6B00" stroke="#39d425" stroke-width="2"/>
-    <text x="34" y="112" font-family="monospace" font-size="7" fill="#b8b8b8">BSL pulse</text>
-    <circle cx="24" cy="122" r="6" fill="#8B008B" stroke="#39d425" stroke-width="2"/>
-    <text x="34" y="126" font-family="monospace" font-size="7" fill="#b8b8b8">NHSL pulse</text>
-    <circle cx="24" cy="136" r="6" fill="#CC0000" stroke="#39d425" stroke-width="2"/>
-    <text x="34" y="140" font-family="monospace" font-size="7" fill="#b8b8b8">PATCO pulse</text>
+    <!-- ══ LEGEND (top-right — top-left obstructed the Chestnut Hill W label) ══ -->
+    <rect x="700" y="12" width="188" height="128" fill="rgba(6,6,6,0.94)" rx="3" stroke="#222" stroke-width="1"/>
+    <text x="708" y="30" font-family="monospace" font-size="8" fill="#39d425" font-weight="700">LIVE GPS  (Regional Rail)</text>
+    <circle cx="712" cy="44" r="5" fill="#39d425" stroke="#060606" stroke-width="1.5"/>
+    <text x="722" y="48" font-family="monospace" font-size="7" fill="#b8b8b8">On time</text>
+    <circle cx="712" cy="60" r="5" fill="#f0a500" stroke="#060606" stroke-width="1.5"/>
+    <text x="722" y="64" font-family="monospace" font-size="7" fill="#b8b8b8">Late (&gt;5 min)</text>
+    <text x="708" y="80" font-family="monospace" font-size="8" fill="#505050" font-weight="700">SCHEDULED HEADWAY</text>
+    <circle cx="712" cy="94"  r="6" fill="#003DA5" stroke="#39d425" stroke-width="2"/>
+    <text x="722" y="98"  font-family="monospace" font-size="7" fill="#b8b8b8">MFL pulse</text>
+    <circle cx="712" cy="108" r="6" fill="#FF6B00" stroke="#39d425" stroke-width="2"/>
+    <text x="722" y="112" font-family="monospace" font-size="7" fill="#b8b8b8">BSL pulse</text>
+    <circle cx="712" cy="122" r="6" fill="#8B008B" stroke="#39d425" stroke-width="2"/>
+    <text x="722" y="126" font-family="monospace" font-size="7" fill="#b8b8b8">NHSL pulse</text>
+    <circle cx="712" cy="136" r="6" fill="#CC0000" stroke="#39d425" stroke-width="2"/>
+    <text x="722" y="140" font-family="monospace" font-size="7" fill="#b8b8b8">PATCO pulse</text>
 
     <!-- ══ FOOTER ══ -->
     <text x="450" y="553" font-family="monospace" font-size="7" fill="#404040" text-anchor="middle">
