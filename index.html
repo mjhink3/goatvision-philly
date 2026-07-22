@@ -1671,7 +1671,7 @@ async function fetchWeather() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${CITY_CONFIG.lat}&longitude=${CITY_CONFIG.lon}` +
     `&current=temperature_2m,precipitation_probability,wind_speed_10m,weather_code,visibility,cloud_cover,relative_humidity_2m,apparent_temperature,uv_index` +
     `&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code` +
-    `&daily=sunrise,sunset` +
+    `&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_hours=36&forecast_days=2&timezone=${encodeURIComponent(CITY_CONFIG.timezone)}`;
   try {
     const res = await fetch(url);
@@ -1747,6 +1747,10 @@ function renderConditions(data) {
   const sunriseStr = fmtTime(sunrise);
   const sunsetStr  = fmtTime(sunset);
 
+  const tempHi = data.daily?.temperature_2m_max?.[0];
+  const tempLo = data.daily?.temperature_2m_min?.[0];
+  const hiLoStr = (tempHi != null && tempLo != null) ? `High ${Math.round(tempHi)}° · Low ${Math.round(tempLo)}°` : '&nbsp;';
+
   // Philly-specific: humidity & heat index relevance (humid summers), snow/ice (winters)
   const ov = precip*0.4/100 + windSev(wind)*0.3 + wmoSeverity(code)*0.3;
 
@@ -1758,7 +1762,7 @@ function renderConditions(data) {
 
   const cells = [
     { label:'Conditions',  value:wmoIcon(code),  sub:wmoDesc(code),   sev:sevClass(ov) },
-    { label:'Temperature', value:`${temp}`,       unit:'°F',  sub:'&nbsp;', sev:temp<=32?'sev-amber':'sev-green' },
+    { label:'Temperature', value:`${temp}`,       unit:'°F',  sub:hiLoStr, sev:temp<=32?'sev-amber':'sev-green' },
     feel != null ? {
       label: temp >= 70 ? 'Heat Index' : 'Wind Chill',
       value: `${feel}`, unit:'°F',
