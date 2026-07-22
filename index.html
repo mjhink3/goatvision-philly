@@ -1730,7 +1730,20 @@ function renderConditions(data) {
 
   const sunrise = data.daily?.sunrise?.[0];
   const sunset  = data.daily?.sunset?.[0];
-  const fmtTime = s => { if(!s) return '—'; const d=new Date(s); return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'}); };
+  const fmtTime = s => {
+    if (!s) return '—';
+    // Open-Meteo sunrise/sunset are already in the location's local time (no tz suffix) —
+    // parse HH:MM directly instead of routing through Date/toLocaleTimeString, which
+    // silently re-anchors the naive string to the viewer's own browser timezone before
+    // reformatting, corrupting the displayed time for any viewer not in America/New_York.
+    // Same fix already proven correct in goatvision-dmv's equivalent fmtTime.
+    const parts = s.split('T');
+    if (!parts[1]) return '—';
+    const [hh, mm] = parts[1].split(':').map(Number);
+    const suffix = hh >= 12 ? 'PM' : 'AM';
+    const h12 = hh % 12 || 12;
+    return `${h12}:${String(mm).padStart(2,'0')} ${suffix}`;
+  };
   const sunriseStr = fmtTime(sunrise);
   const sunsetStr  = fmtTime(sunset);
 
