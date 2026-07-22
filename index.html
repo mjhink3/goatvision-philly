@@ -1639,33 +1639,6 @@ async function fetchWeather() {
   }
 }
 
-// ── Pollen helpers ───────────────────────────────────────────
-function pollenLevel(count) {
-  // grains/m³ thresholds (CAMS model output). count is null when no pollen field reported a
-  // value at all — confirmed via live testing that Open-Meteo's pollen model only covers
-  // Europe (cams_europe) and errors outright for any U.S. coordinate; cams_global (the only
-  // domain with U.S. coverage) never carries pollen data, even for European coordinates. That's
-  // genuinely no data, not a real zero reading, so it's kept visually distinct — neutral, not
-  // the green "None" used for an actual confirmed-zero measurement.
-  if (count == null)  return { label:'—',        cls:'',          sub:'No free live source available' };
-  if (count <= 0)     return { label:'None',      cls:'sev-green', sub:'No pollen detected' };
-  if (count < 10)     return { label:'Low',       cls:'sev-green', sub:`${Math.round(count)} grains/m³` };
-  if (count < 50)     return { label:'Moderate',  cls:'sev-amber', sub:`${Math.round(count)} grains/m³` };
-  if (count < 200)    return { label:'High',      cls:'sev-red',   sub:`${Math.round(count)} grains/m³` };
-  return                     { label:'Very High', cls:'sev-red',   sub:`${Math.round(count)} grains/m³` };
-}
-function dominantPollen(aqd) {
-  // Returns the highest active pollen type and its count. count stays null (not 0) when no
-  // field reported a value at all, so pollenLevel can distinguish "never measured" from
-  // "measured, and it's zero."
-  const candidates = [];
-  if (aqd.birch_pollen  != null) candidates.push({ name:'Tree',    count: (aqd.alder_pollen??0) + (aqd.birch_pollen??0) });
-  if (aqd.grass_pollen  != null) candidates.push({ name:'Grass',   count: aqd.grass_pollen??0 });
-  if (aqd.ragweed_pollen!= null) candidates.push({ name:'Ragweed', count: aqd.ragweed_pollen??0 });
-  if (!candidates.length) return { name:'—', count: null };
-  return candidates.reduce((best, c) => c.count > best.count ? c : best, candidates[0]);
-}
-
 // ── UV helpers ───────────────────────────────────────────────
 function uvLabel(uv) {
   if (uv == null) return { label:'—', cls:'', sub:'No data' };
@@ -1740,10 +1713,6 @@ function renderConditions(data) {
       sub: smokeFlag ? 'Elevated PM2.5' : 'Air clear',
       sev: smokeFlag ? 'sev-amber' : 'sev-green', smallVal:true });
 
-    const dom = dominantPollen(aqiData);
-    const pl  = pollenLevel(dom.count);
-    cells.push({ label: `Pollen (${dom.name})`, value: pl.label, sub: pl.sub, sev: pl.cls, smallVal:true });
-
     const uvInfo = uvLabel(uv);
     cells.push({ label:'UV Index', value:uvInfo.label, sub:uvInfo.sub, sev:uvInfo.cls, smallVal:true });
   }
@@ -1810,7 +1779,7 @@ function aqiLevel(aqi) {
 
 async function fetchAirQuality() {
   const url = `https://air-quality-api.open-meteo.com/v1/air-quality` +
-    `?latitude=${CITY_CONFIG.lat}&longitude=${CITY_CONFIG.lon}&current=us_aqi,pm2_5,pm10,grass_pollen,ragweed_pollen,alder_pollen,birch_pollen&domains=cams_global`;
+    `?latitude=${CITY_CONFIG.lat}&longitude=${CITY_CONFIG.lon}&current=us_aqi,pm2_5,pm10&domains=cams_global`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
