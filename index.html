@@ -123,6 +123,23 @@
   .cond-value.small-val { font-size:15px; }
   .cond-unit  { font-size:11px; color:var(--text-dim); }
   .cond-sub   { font-size:10px; color:var(--text-dim); }
+
+  /* ── 7-DAY FORECAST ── */
+  #forecast7-content { display:flex; flex-wrap:wrap; padding:0; }
+  .f7-day {
+    flex:1; min-width:90px; padding:10px 8px;
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    text-align:center;
+  }
+  .f7-day:last-child { border-right:none; }
+  .f7-dow    { font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-dim); font-weight:600; }
+  .f7-icon   { font-size:22px; line-height:1.2; }
+  .f7-hi     { font-size:15px; font-weight:700; color:var(--text-bright); }
+  .f7-lo     { font-size:12px; color:var(--text-dim); }
+  .f7-precip { font-size:9px; color:var(--text-dim); min-height:11px; }
+  .f7-precip.sev-amber { color:var(--amber); font-weight:600; }
+  .f7-precip.sev-red   { color:var(--red);   font-weight:600; }
   .sev-green  { color:var(--green)  !important; }
   .sev-amber  { color:var(--amber)  !important; }
   .sev-red    { color:var(--red)    !important; }
@@ -747,6 +764,15 @@
       <span class="refresh-ts" id="weather-ts">—</span>
     </div>
     <div id="conditions-content"><div class="loading-msg">Fetching weather…</div></div>
+  </div>
+
+  <!-- ── 7-DAY FORECAST ── -->
+  <div class="panel" id="forecast7-panel">
+    <div class="panel-header">
+      <span class="panel-title"><span class="panel-icon">&#128197;</span> 7-Day Forecast</span>
+      <span class="refresh-ts" id="forecast7-ts">—</span>
+    </div>
+    <div id="forecast7-content"><div class="loading-msg">Fetching forecast…</div></div>
   </div>
 
   <!-- ── NWS ACTIVE ALERTS ── -->
@@ -1671,8 +1697,8 @@ async function fetchWeather() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${CITY_CONFIG.lat}&longitude=${CITY_CONFIG.lon}` +
     `&current=temperature_2m,precipitation_probability,wind_speed_10m,weather_code,visibility,cloud_cover,relative_humidity_2m,apparent_temperature,uv_index` +
     `&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code` +
-    `&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min` +
-    `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_hours=36&forecast_days=2&timezone=${encodeURIComponent(CITY_CONFIG.timezone)}`;
+    `&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max` +
+    `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_hours=36&forecast_days=7&timezone=${encodeURIComponent(CITY_CONFIG.timezone)}`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1684,12 +1710,14 @@ async function fetchWeather() {
     renderDriveWindow(data);
     renderCoffee(data);
     renderBike(data);
+    renderForecast7(data);
     setDot('weather-dot','green');
     const now = ts();
     document.getElementById('weather-ts').textContent  = `Refreshed ${now}`;
     document.getElementById('drive-ts').textContent    = `Refreshed ${now}`;
     document.getElementById('coffee-ts').textContent   = `Refreshed ${now}`;
     document.getElementById('bike-ts').textContent     = `Refreshed ${now}`;
+    document.getElementById('forecast7-ts').textContent = `Refreshed ${now}`;
   } catch(e) {
     setDot('weather-dot','red');
     document.getElementById('conditions-content').innerHTML = `<div class="error-msg">&#9888; Weather failed: ${e.message}</div>`;
@@ -1797,6 +1825,37 @@ function renderConditions(data) {
       <div class="cond-value ${cc.sev||''} ${cc.smallVal?'small-val':''}">${cc.value}<span class="cond-unit">${cc.unit||''}</span></div>
       <div class="cond-sub">${cc.sub}</div>
     </div>`).join('');
+}
+
+// ── 7-Day Forecast ──────────────────────────────────────────
+// daily.time is a bare "YYYY-MM-DD" date (no time component), which per spec
+// parses as UTC midnight if passed straight to new Date() — shifting the
+// weekday back a day for any Western-hemisphere viewer. Building the Date from
+// the Y-M-D integers directly avoids that string-parse entirely.
+function dowLabel(dateStr, idx) {
+  if (idx === 0) return 'Today';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short' });
+}
+function renderForecast7(data) {
+  const daily = data.daily;
+  if (!daily?.time) return;
+  const html = daily.time.map((dateStr, i) => {
+    const hi     = daily.temperature_2m_max?.[i];
+    const lo     = daily.temperature_2m_min?.[i];
+    const code   = daily.weather_code?.[i];
+    const precip = daily.precipitation_probability_max?.[i] ?? 0;
+    const precipSev = precip>=70 ? 'sev-red' : precip>=40 ? 'sev-amber' : '';
+    return `
+    <div class="f7-day">
+      <div class="f7-dow">${dowLabel(dateStr, i)}</div>
+      <div class="f7-icon">${wmoIcon(code)}</div>
+      <div class="f7-hi">${hi!=null?Math.round(hi):'—'}°</div>
+      <div class="f7-lo">${lo!=null?Math.round(lo):'—'}°</div>
+      <div class="f7-precip ${precipSev}">${precip>0?`💧${precip}%`:'&nbsp;'}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('forecast7-content').innerHTML = html;
 }
 
 function renderDriveWindow(data) {
