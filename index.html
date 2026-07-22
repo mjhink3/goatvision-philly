@@ -260,7 +260,7 @@
   }
   .tt-filter-btn:hover, .tt-filter-btn.active { background:var(--blue-dim); border-color:var(--gv-green); color:var(--text-bright); }
   #tt-list { max-height:420px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
-  .tt-row { display:grid; grid-template-columns:68px 1fr auto auto 56px; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--border); transition:background 0.1s; }
+  .tt-row { display:grid; grid-template-columns:76px 1fr auto auto 56px; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--border); transition:background 0.1s; }
   .tt-row:last-child { border-bottom:none; }
   .tt-row:hover { background:var(--bg3); }
   .tt-tag  { font-size:9px; font-weight:700; letter-spacing:0.05em; color:var(--gv-green); white-space:nowrap; }
@@ -2954,7 +2954,7 @@ function renderTravelTimes() {
     // now shown explicitly and compactly via the direction letter in tt-tag instead.
     const name = (r.Name||'').replace(/\s*(HOV|EL)\s*$/i,'').replace(/\s*\((Northbound|Southbound|Eastbound|Westbound)\)\s*$/i,'').trim();
     html+=`<div class="tt-row" title="${r.Name||''}">
-      <span class="tt-tag">${r._road} ${r._dir} ${dirArrowSVG(r._dir)}</span>
+      <span class="tt-tag"><span class="dot dot-green" title="Live: HERE Traffic Flow API" style="width:5px;height:5px;margin-right:4px;"></span>${r._road} ${r._dir} ${dirArrowSVG(r._dir)}</span>
       <span class="tt-name">${name}</span>
       <span class="tt-cur">${speed}<span class="tt-cur-unit">mph</span></span>
       <span class="tt-avg">${avgDisplay}</span>
