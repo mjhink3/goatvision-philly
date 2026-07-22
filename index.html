@@ -1752,7 +1752,7 @@ function renderConditions(data) {
 
   // "Rocky Steps?" — visibility of Museum of Art / skyline from South Philly
   let rockyVal, rockySub, rockySev;
-  if (wmoSeverity(code)>=0.5 || clouds>75) { rockyVal='Socked In'; rockySub='Skyline obscured'; rockySev='sev-red'; }
+  if (wmoSeverity(code)>=0.5 || clouds>75) { rockyVal='Socked In'; rockySub='Cloud ceiling'; rockySev='sev-red'; }
   else if (clouds>40)                       { rockyVal='Hazy';      rockySub=`${clouds}% clouds`;  rockySev='sev-amber'; }
   else                                      { rockyVal='Clear';     rockySub=`${clouds}% clouds`;  rockySev='sev-green'; }
 
