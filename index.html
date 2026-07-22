@@ -68,6 +68,19 @@
   #quote-strip .q-mark { color:var(--gv-purple); font-size:16px; font-style:normal; flex-shrink:0; }
   #quote-strip .q-attr { color:var(--gv-green); font-style:normal; font-weight:600; }
 
+  /* ── ON THIS DAY STRIP ── */
+  #otd-strip {
+    background: linear-gradient(90deg,#080808,#0f0f0f,#080808);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 18px;
+    display: none; align-items: center; gap: 8px;
+    font-size: 10px; color: var(--text-dim);
+  }
+  #otd-strip .otd-mark { color:var(--gv-green); font-size:12px; flex-shrink:0; }
+  #otd-strip .otd-year { color:var(--gv-purple); font-weight:600; }
+  #otd-strip a { color:inherit; text-decoration:none; border-bottom:1px dotted var(--text-dim); }
+  #otd-strip a:hover { border-bottom-style:solid; }
+
   /* ── CROSS-APP NAV STRIP ── */
   #citynav-strip {
     background: linear-gradient(90deg,#080808,#0f0f0f,#080808);
@@ -702,6 +715,12 @@
 <div id="quote-strip">
   <span class="q-mark">&#8220;</span>
   <span id="quote-text" style="flex:1">Loading&hellip;</span>
+</div>
+
+<!-- ═════════════════════════════════════════ ON THIS DAY ═══ -->
+<div id="otd-strip">
+  <span class="otd-mark">&#128197;</span>
+  <span id="otd-text" style="flex:1"></span>
 </div>
 
 <!-- ═══════════════════════════════════════════ MAIN ═══ -->
@@ -1569,6 +1588,36 @@ function setDailyQuote() {
   const q     = CITY_CONFIG.quotes[doy % CITY_CONFIG.quotes.length];
   document.getElementById('quote-text').innerHTML =
     `&#8220;${q.text}&#8221; &nbsp;<span class="q-attr">— ${q.attr}</span>`;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  ON THIS DAY — curated, static dataset; matched by month/day only, year ignored.
+//  Panel stays hidden entirely on any date with no entry — no fetch, no placeholder text.
+// ╚══════════════════════════════════════════════════════════╝
+const ON_THIS_DAY = [
+  { date:"02/04", year:2018, description:"The Philadelphia Eagles defeated the New England Patriots to win Super Bowl LII, 41–33.", source:"https://www.philadelphiaeagles.com/photos/super-bowl-lii-february-4-20335710" },
+  { date:"02/09", year:2025, description:"The Philadelphia Eagles defeated the Kansas City Chiefs 40–22 in Super Bowl LIX at Caesars Superdome in New Orleans, denying the Chiefs a historic three-peat. Jalen Hurts was named Super Bowl MVP.", source:"https://www.nfl.com/news/eagles-qb-jalen-hurts-named-super-bowl-lix-most-valuable-player" },
+  { date:"03/01", year:1780, description:"Pennsylvania’s Act for the Gradual Abolition of Slavery was enabled into law at Philadelphia. The statute represented a gradual, rather than immediate, legislative approach to ending slavery in the state.", source:"https://avalon.law.yale.edu/18th_century/pennst01.asp" },
+  { date:"04/24", year:1967, description:"The Philadelphia 76ers, led by Wilt Chamberlain's record-setting 68-13 regular season, defeated the San Francisco Warriors 125–122 in Game 6 to win the series 4 games to 2 and capture the NBA championship.", source:"https://www.basketball-reference.com/boxscores/196704240SFW.html" },
+  { date:"05/10", year:1876, description:"The Centennial Exhibition officially opened in Philadelphia, marking a major international exposition held during the nation’s centennial year.", source:"https://siarchives.si.edu/collections/siris_sic_2351" },
+  { date:"05/13", year:1985, description:"A confrontation between Philadelphia city government and MOVE occurred on this date. The subsequent fire resulted in 11 MOVE-member deaths and the destruction of 61 homes, according to the city investigation records preserved by Temple University.", source:"https://scrcarchivesspace.temple.edu/repositories/4/resources/725" },
+  { date:"05/19", year:1974, description:"The Philadelphia Flyers defeated the Boston Bruins 1–0 in Game 6 in Philadelphia, securing a 4–2 Stanley Cup Final series victory.", source:"https://www.nhl.com/gamecenter/bos-vs-phi/1974/05/19/1973030316" },
+  { date:"05/31", year:1983, description:"The Philadelphia 76ers defeated the Los Angeles Lakers 115–108 in Game 4 to complete their NBA Finals sweep and win the 1983 NBA championship.", source:"https://www.nba.com/game/phl-vs-lal-0048200043" },
+  { date:"07/04", year:1776, description:"The Continental Congress officially adopted the Declaration of Independence at the Pennsylvania State House, now Independence Hall, in Philadelphia.", source:"https://www.archives.gov/founding-docs/declaration-history" },
+  { date:"09/17", year:1787, description:"Delegates to the Constitutional Convention agreed on the final draft of the U.S. Constitution in Philadelphia.", source:"https://www.nps.gov/articles/independence-hall-international-symbol-of-freedom.htm" },
+  { date:"10/21", year:1980, description:"The Philadelphia Phillies defeated the Kansas City Royals 4–1 in Game 6 at Veterans Stadium to win the World Series 4 games to 2 — the franchise's first championship in its 98-year history.", source:"https://sabr.org/gamesproj/game/october-21-1980-phillies-win-their-first-world-series-championship/" },
+  { date:"10/29", year:2008, description:"The Philadelphia Phillies completed a 4–3 victory over the Tampa Bay Rays at Citizens Bank Park to secure the World Series title.", source:"https://www.mlb.com/news/phillies-remember-world-series-win-in-2008-c299938102" },
+  { date:"12/06", year:1790, description:"Congress convened in Philadelphia as the interim federal capital under the Residence Act, while the permanent capital was being developed. Philadelphia remained the national capital until 1800.", source:"https://history.house.gov/Historical-Highlights/1700s/The-interim-federal-capital-in-Philadelphia/" },
+];
+function setOnThisDay() {
+  const now  = new Date();
+  const mmdd = String(now.getMonth()+1).padStart(2,'0') + '/' + String(now.getDate()).padStart(2,'0');
+  const el   = document.getElementById('otd-strip');
+  const hit  = ON_THIS_DAY.find(e => e.date === mmdd);
+  if (!hit) { el.style.display = 'none'; return; }
+  document.getElementById('otd-text').innerHTML =
+    `${hit.description} <span class="otd-year">(${hit.year})</span> — <a href="${hit.source}" target="_blank" rel="noopener noreferrer">source</a>`;
+  el.style.display = 'flex';
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -3968,6 +4017,7 @@ async function fetchTrauma() {
 function init() {
   startClock();
   setDailyQuote();
+  setOnThisDay();
 
   fetchWeather();
   fetchAirQuality();
