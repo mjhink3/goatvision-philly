@@ -1858,7 +1858,7 @@ function renderNWSAlerts() {
           </div>
         </div>`;
       }).join('');
-  sections.push(`<div class="unified-section-label">&#127785; NWS Weather Alerts</div>${nwsHtml}`);
+  sections.push(nwsHtml);
 
   // ── Weather impact + Game day context (only when relevant) ──
   const contextRows = [];
