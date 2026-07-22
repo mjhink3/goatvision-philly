@@ -683,6 +683,7 @@
     <span><span class="dot dot-gray"  id="trauma-dot"></span> &#128736; Trauma</span>
     <span><span class="dot dot-gray"  id="phl-dot"></span> &#9992; PHL</span>
     <span id="sys-time-wrap" style="display:flex;flex-direction:column;align-items:center;gap:1px">
+      <span id="sys-date" class="cond-sub" style="font-size:9px">--</span>
       <span id="sys-time">--:--:--</span>
       <span class="cond-sub" style="font-size:8px">Philly time</span>
     </span>
@@ -1525,6 +1526,9 @@ const PROXIES = [
 function ts(d = new Date()) {
   return d.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'America/New_York'});
 }
+function dateStr(d = new Date()) {
+  return d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'America/New_York'});
+}
 function minsAgo(date) {
   const s = Math.floor((Date.now()-date)/1000);
   return s < 60 ? `${s}s ago` : `${Math.floor(s/60)}m ${s%60}s ago`;
@@ -1547,7 +1551,11 @@ function parseDotNetDate(s) {
 // ╚══════════════════════════════════════════════════════════╝
 function startClock() {
   const el = document.getElementById('sys-time');
-  const tick = () => { el.textContent = ts(); };
+  const dateEl = document.getElementById('sys-date');
+  const tick = () => {
+    el.textContent = ts();
+    if (dateEl) dateEl.textContent = dateStr();
+  };
   tick(); setInterval(tick, 1000);
 }
 
