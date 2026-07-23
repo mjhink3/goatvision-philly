@@ -22,6 +22,9 @@
     --blue-dim:    #1b4f13;
     --amber:       #f0a500;
     --red:         #e63946;
+    --red-text:    #ff6b6b; /* --red is only 4.92:1 against near-black panel bg — fine for a
+                                small dot, borderline for a full sentence of body text.
+                                Lightened variant, dots/badges untouched, ~7.4:1, AAA-level. */
     --green:       #39d425;
     --text:        #b8b8b8;
     --text-dim:    #505050;
@@ -422,7 +425,10 @@
   #ops-brief-panel .refresh-ts   { color:rgba(57,212,37,0.35); font-size:8px; letter-spacing:0.04em; }
   #ops-brief-content  { padding:10px 14px 6px; position:relative; z-index:11; }
   #ops-brief-bullets  { display:flex; flex-direction:column; gap:6px; }
-  .ops-bullet { display:flex; align-items:flex-start; gap:10px; font-size:11px; color:var(--gv-green); line-height:1.5; letter-spacing:0.015em; }
+  .ops-bullet { display:flex; align-items:flex-start; gap:10px; font-size:11px; line-height:1.5; letter-spacing:0.015em; }
+  .ops-bullet.green { color:var(--gv-green); }
+  .ops-bullet.amber { color:var(--amber); }
+  .ops-bullet.red   { color:var(--red-text); }
   .ops-bullet span:last-child { flex:1; }
   .ops-indicator { width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:4px; }
   .ops-indicator.green { background:var(--green); box-shadow:0 0 5px var(--green); }
@@ -3870,13 +3876,13 @@ function generateOpsBrief() {
   }
 
   if (!bullets.length) {
-    el.innerHTML=`<div class="ops-bullet"><span class="ops-indicator green"></span><span>All systems nominal.<span class="ops-cursor"></span></span></div>`;
+    el.innerHTML=`<div class="ops-bullet green"><span class="ops-indicator green"></span><span>All systems nominal.<span class="ops-cursor"></span></span></div>`;
     return;
   }
   const top8=bullets.slice(0,8);
   el.innerHTML=top8.map((b,i)=>{
     const cursor=i===top8.length-1?'<span class="ops-cursor"></span>':'';
-    return `<div class="ops-bullet"><span class="ops-indicator ${b.color}"></span><span>${b.text}${cursor}</span></div>`;
+    return `<div class="ops-bullet ${b.color}"><span class="ops-indicator ${b.color}"></span><span>${b.text}${cursor}</span></div>`;
   }).join('');
 }
 
