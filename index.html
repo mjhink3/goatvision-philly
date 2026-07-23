@@ -554,13 +554,18 @@
     .panel { max-width:100%; overflow:hidden; }
     .refresh-ts { display:none; }
 
-    /* ── HEADER ── */
-    #header { flex-direction:row; align-items:flex-start; justify-content:space-between; gap:6px; padding:8px 10px; }
+    /* ── HEADER ──
+       Was: .brand-city and every header-right status dot except the clock hidden via
+       display:none at this same breakpoint. Since portrait phones fall under 480px width
+       but landscape rotation usually exceeds it, this meant the metro name and every status
+       dot vanished in portrait and only reappeared on rotation to landscape — same info,
+       just gated by width rather than genuinely mobile-adapted. Restyled instead of hidden:
+       brand block stacks above a wrapping status row, both full-width. */
+    #header { flex-direction:column; align-items:stretch; gap:8px; padding:8px 10px; }
     .brand-goat, .brand-vision { font-size:15px; }
-    .brand-city { display:none; }
+    .brand-city { font-size:9px; letter-spacing:0.25em; }
     .brand-tagline { font-size:8px; margin-top:2px; }
-    .header-right { flex-direction:column; align-items:flex-end; gap:2px; }
-    #header .header-right span:not(#sys-time):not(#sys-time-wrap):not(.cond-sub) { display:none; }
+    #header .header-right { flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:6px 12px; font-size:9px; }
     #sys-time { font-size:13px; }
     .panel-header { padding:5px 8px; }
     .panel-title  { font-size:8px; white-space:normal; word-break:break-word; }
