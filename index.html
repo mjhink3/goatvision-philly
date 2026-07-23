@@ -717,7 +717,6 @@
     <span><span class="dot dot-gray"  id="phl-dot"></span> &#9992; PHL</span>
     <span><span class="dot dot-gray"  id="pfd-dot"></span> &#128222; 311</span>
     <span><span class="dot dot-gray"  id="seismic-dot"></span> &#127755; Seismic</span>
-    <span><span class="dot dot-gray"  id="trauma-dot"></span> &#128736; Trauma</span>
     <span id="sys-time-wrap" style="display:flex;flex-direction:column;align-items:center;gap:1px">
       <span id="sys-date" class="cond-sub" style="font-size:9px">--</span>
       <span id="sys-time">--:--:--</span>
@@ -1039,8 +1038,8 @@
   <!-- ── TRAUMA CENTERS ── -->
   <div class="panel" id="trauma-panel">
     <div class="panel-header">
-      <span class="panel-title"><span class="panel-icon">&#128736;</span> Philadelphia Trauma Centers &amp; ED Status</span>
-      <span class="refresh-ts" id="trauma-ts">—</span>
+      <span class="panel-title"><span class="panel-icon">&#128736;</span> Philadelphia Trauma Centers</span>
+      <span class="refresh-ts">Static &mdash; always verify before transport</span>
     </div>
     <div id="hospitals-grid">
 
@@ -1142,8 +1141,8 @@
 
     </div>
     <div id="hospitals-footer">
-      Live diversion status: <a href="https://www.pamedic.org" target="_blank" rel="noopener">pamedic.org</a> &nbsp;&middot;&nbsp;
-      <span id="trauma-ts-inline"></span>
+      Call 911 for emergencies &mdash; this panel is for reference only. Always contact hospital before transport for trauma cases. &nbsp;&middot;&nbsp;
+      <a href="https://www.pamedic.org" target="_blank" rel="noopener">pamedic.org</a>
     </div>
   </div>
 
@@ -4043,52 +4042,6 @@ async function fetchAmtrak() {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
-//  TRAUMA CENTER STATUS
-//  Hospital cards are static HTML. fetchTrauma() checks pamedic
-//  for any active diversion and updates the dot + footer.
-// ╚══════════════════════════════════════════════════════════╝
-async function fetchTrauma() {
-  // Hospital cards are now static HTML with phone numbers and links.
-  // This function attempts a pamedic.org fetch to detect any diversion
-  // and updates the header dot and footer timestamp accordingly.
-  async function checkPamedic() {
-    try {
-      for (const proxy of PROXIES) {
-        try {
-          const res = await fetch(proxy + encodeURIComponent('https://www.pamedic.org/hospitals'));
-          if (!res.ok) continue;
-          const text = (await res.text()).trim();
-          if (!text || text.length < 100 || text[0] === '<' && text.includes('<!DOCTYPE')) {
-            const lower = text.toLowerCase();
-            if (lower.includes('diversion') && lower.includes('red')) return 'diversion';
-            if (lower.includes('consider') || lower.includes('yellow'))  return 'consider';
-            if (lower.includes('normal'))                                 return 'normal';
-          }
-        } catch(e) {}
-      }
-    } catch(e) {}
-    return 'unknown';
-  }
-
-  const status = await Promise.race([
-    checkPamedic(),
-    new Promise(resolve => setTimeout(() => resolve('unknown'), 5000)),
-  ]);
-
-  const dotMap = { normal:'green', consider:'amber', diversion:'red', unknown:'gray' };
-  setDot('trauma-dot', dotMap[status] || 'gray');
-
-  const footerTs = document.getElementById('trauma-ts-inline');
-  if (footerTs) {
-    footerTs.textContent = status === 'unknown'
-      ? `pamedic.org unavailable · ${ts()}`
-      : `pamedic status checked ${ts()}`;
-  }
-  document.getElementById('trauma-ts').textContent =
-    status === 'unknown' ? `Static ref · ${ts()}` : `Live check ${ts()}`;
-}
-
-// ╔══════════════════════════════════════════════════════════╗
 //  INIT
 // ╚══════════════════════════════════════════════════════════╝
 function init() {
@@ -4108,7 +4061,6 @@ function init() {
   fetchPHL();
   fetchTravelTimes();
   fetchAmtrak();
-  fetchTrauma();
   fetchIncidents();
 
   setInterval(fetchWeather,          CONFIG.REFRESH_WEATHER_MS);
@@ -4133,7 +4085,6 @@ function init() {
   setInterval(fetchSeismic,          5  * 60 * 1000);
   setInterval(fetchPHL,              5  * 60 * 1000);
   setInterval(fetchAmtrak,           60 * 1000);
-  setInterval(fetchTrauma,           5  * 60 * 1000);
 
   setTimeout(generateOpsBrief, 2000);
   setInterval(generateOpsBrief, 2 * 60 * 1000);
