@@ -3687,24 +3687,12 @@ async function fetchSeismic() {
 //  PHL AIRPORT STATUS (FAA NAS Status API — no key)
 // ╚══════════════════════════════════════════════════════════╝
 async function fetchPHL() {
-  const FAA_URL='https://nasstatus.faa.gov/api/airport-status-information';
   const el=document.getElementById('phl-content');
   let text=null;
   try {
-    const res=await fetch(FAA_URL,{headers:{Accept:'application/xml, text/xml, */*'}});
+    const res=await fetch('/api/faa');
     if (res.ok) text=await res.text();
   } catch(e) {}
-
-  if (!text) {
-    for (const proxy of PROXIES) {
-      try {
-        const res=await fetch(proxy+encodeURIComponent(FAA_URL));
-        if (!res.ok) continue;
-        const t=await res.text();
-        if (t?.trim()) { text=t; break; }
-      } catch(e) {}
-    }
-  }
 
   if (!text?.trim()) {
     setDot('phl-dot','gray');
@@ -3728,12 +3716,19 @@ async function fetchPHL() {
         a.textContent.trim().toUpperCase()===CITY_CONFIG.airportCode
       );
       if (!phlNode) continue;
-      const airportEl=phlNode.closest('Airport');
-      const avgDelay=airportEl?.querySelector('Avg')?.textContent?.trim()||dt.querySelector('AvgDelay')?.textContent?.trim()||'';
-      const reason=airportEl?.querySelector('Reason')?.textContent?.trim()||dt.querySelector('Reason')?.textContent?.trim()||'';
+      // PHL's own entry element is always ARPT's direct parent (Ground_Delay, Delay, or
+      // Airport, depending on Delay_type) — scope Avg/Reason lookups to that element only,
+      // not the whole Delay_type block, so a different airport's Reason (e.g. JFK's) never
+      // gets misattributed to PHL when PHL isn't the first ARPT in document order.
+      const entryEl=phlNode.parentElement;
+      const avg=entryEl?.querySelector('Avg')?.textContent?.trim();
+      const min=entryEl?.querySelector('Min')?.textContent?.trim();
+      const max=entryEl?.querySelector('Max')?.textContent?.trim();
+      const delayLabel=avg?`${avg} avg`:(min&&max?`${min}–${max}`:'');
+      const reason=entryEl?.querySelector('Reason')?.textContent?.trim()||'';
       const isGroundStop=/ground.?stop|closure/i.test(name);
       if (isGroundStop) hasGroundStop=true;
-      delays.push({name,reason,avgDelay,isGroundStop});
+      delays.push({name,reason,delayLabel,isGroundStop});
     }
 
     if (!delays.length) {
@@ -3745,7 +3740,7 @@ async function fetchPHL() {
         <div class="incident-item">
           <div>
             <div class="incident-sev ${d.isGroundStop?'sev-high':'sev-medium'}">${d.isGroundStop?'GND STOP':'DELAY'}</div>
-            ${d.avgDelay?`<div style="font-size:8px;color:var(--text-dim);margin-top:3px;text-align:center">${d.avgDelay} avg</div>`:''}
+            ${d.delayLabel?`<div style="font-size:8px;color:var(--text-dim);margin-top:3px;text-align:center">${d.delayLabel}</div>`:''}
           </div>
           <div>
             <div class="incident-desc">${d.name}</div>
