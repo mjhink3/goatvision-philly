@@ -36,23 +36,29 @@
 
   html, body { height:100%; background:var(--bg); color:var(--text); font-family:var(--mono); font-size:12px; line-height:1.4; overflow-x:hidden; }
 
-  /* ── HEADER ── */
+  /* ── HEADER ──
+     #sys-time-wrap is a genuine grid sibling of #header-brand/.header-right (not nested
+     inside .header-right anymore) so mobile can place it beside the brand block instead
+     of letting it wrap in with the status dots. grid-area names stay the same at every
+     breakpoint; only grid-template-areas/columns change per media query. */
   #header {
     background: linear-gradient(180deg, #0e0e0e 0%, #080808 55%, var(--bg) 100%);
     border-bottom: 1px solid var(--border);
     padding: 10px 16px;
-    display: flex; align-items: center; justify-content: space-between;
+    display: grid; grid-template-columns: auto 1fr auto auto; grid-template-areas: "brand . dots clock";
+    align-items: center; column-gap: 18px;
     position: sticky; top: 0; z-index: 100;
   }
-  #header-brand { display:flex; flex-direction:column; gap:0; line-height:1; }
+  #header-brand { grid-area:brand; display:flex; flex-direction:column; gap:0; line-height:1; }
   .brand-line1 { display:flex; align-items:baseline; }
   .brand-goat   { font-size:20px; font-weight:700; letter-spacing:0.04em; color:#f0f0f0; }
   .brand-vision { font-size:20px; font-weight:300; font-style:italic; color:var(--gv-purple); }
   .brand-tm     { font-size:8px; color:var(--text-dim); vertical-align:super; margin-left:2px; }
   .brand-city   { font-size:10px; font-weight:700; letter-spacing:0.35em; color:var(--gv-green); text-transform:uppercase; margin-top:3px; }
   .brand-tagline{ font-size:8px; letter-spacing:0.18em; color:var(--text-dim); margin-top:2px; text-transform:uppercase; }
-  #header .header-right { display:flex; gap:18px; align-items:center; font-size:11px; color:var(--text-dim); }
+  #header .header-right { grid-area:dots; display:flex; gap:18px; align-items:center; font-size:11px; color:var(--text-dim); }
   #header .header-right span { display:flex; align-items:center; gap:4px; }
+  #sys-time-wrap { grid-area:clock; }
   .dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
   .dot-green { background:var(--green); box-shadow:0 0 4px var(--green); }
   .dot-amber { background:var(--amber); box-shadow:0 0 4px var(--amber); }
@@ -560,8 +566,13 @@
        but landscape rotation usually exceeds it, this meant the metro name and every status
        dot vanished in portrait and only reappeared on rotation to landscape — same info,
        just gated by width rather than genuinely mobile-adapted. Restyled instead of hidden:
-       brand block stacks above a wrapping status row, both full-width. */
-    #header { flex-direction:column; align-items:stretch; gap:8px; padding:8px 10px; }
+       brand block stacks above a wrapping status row, both full-width.
+       Second pass: #sys-time-wrap (clock) was wrapping in-line with the status dots since
+       it lived inside .header-right, landing on its own line below everything — same
+       vertical-space problem, different cause. Now a real grid sibling (see base #header
+       rule), so it can sit in the top-right corner beside brand while dots still wrap
+       into their own full-width row underneath, unchanged from the first pass. */
+    #header { grid-template-columns:1fr auto; grid-template-areas:"brand clock" "dots dots"; row-gap:8px; column-gap:8px; padding:8px 10px; align-items:start; }
     .brand-goat, .brand-vision { font-size:15px; }
     .brand-city { font-size:9px; letter-spacing:0.25em; }
     .brand-tagline { font-size:8px; margin-top:2px; }
@@ -722,12 +733,12 @@
     <span><span class="dot dot-gray"  id="phl-dot"></span> &#9992; PHL</span>
     <span><span class="dot dot-gray"  id="pfd-dot"></span> &#128222; 311</span>
     <span><span class="dot dot-gray"  id="seismic-dot"></span> &#127755; Seismic</span>
-    <span id="sys-time-wrap" style="display:flex;flex-direction:column;align-items:center;gap:1px">
-      <span id="sys-date" class="cond-sub" style="font-size:9px">--</span>
-      <span id="sys-time">--:--:--</span>
-      <span class="cond-sub" style="font-size:8px">Philly time</span>
-    </span>
   </div>
+  <span id="sys-time-wrap" style="display:flex;flex-direction:column;align-items:center;gap:1px">
+    <span id="sys-date" class="cond-sub" style="font-size:9px">--</span>
+    <span id="sys-time">--:--:--</span>
+    <span class="cond-sub" style="font-size:8px">Philly time</span>
+  </span>
 </div>
 
 <!-- ═════════════════════════════════════════ CROSS-APP NAV ═══ -->
